@@ -1,9 +1,9 @@
 // 試験中にお腹が鳴る（exam-tummy）。仕様の正本は ~/Desktop/claudecode/ideas/exam-tummy.md
 // 遊びの処理（S と step）は固定60Hz。見た目は render。遊びの乱数は S.rand（種つき）、見た目の乱数は Math.random
 import * as THREE from 'three'
-import { GLTFLoader } from './vendor/jsm/loaders/GLTFLoader.js'
-import { clone as skClone } from './vendor/jsm/utils/SkeletonUtils.js'
-import { setupLook, enableShadows, castShadow, receiveShadow } from './look.js'
+import { GLTFLoader } from './vendor/jsm/loaders/GLTFLoader.js?v=2'
+import { clone as skClone } from './vendor/jsm/utils/SkeletonUtils.js?v=2'
+import { setupLook, enableShadows, castShadow, receiveShadow } from './look.js?v=2'
 
 const D = window.ET_DATA
 const $ = id => document.getElementById(id)
@@ -33,14 +33,18 @@ function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Ma
 // ---------- 状態
 const S = {
   mode: 'title', t: 0, rand: Math.random, seed: 1, speed: 1, dbgPause: false,
-  rumbles: [], exts: [], uses: { cough: 4, chair: 4, pen: 3 }, prog: 0, pauseUntil: 0,
-  rumble: 0, safe: 0, bust: 0, extSafe: 0, wasted: 0, R: 0, lastBust: -99, coughN: 0, chairN: 0,
+  rumbles: [], exts: [], rumble: 0, safe: 0, bust: 0, extSafe: 0, wasted: 0, R: 0, lastBust: -99,
+  // 手持ち: 咳払いは時間で喉が戻る・椅子はずれたら座り直す・鉛筆は落としたら拾う。使い切りは無い
+  coughUntil: 0, chairOff: false, penDown: false, busyUntil: 0, busyKind: null,
+  ans: 0, strokes: 0, readUntil: 0, lastWrite: -9, sus: { k: null, n: 0, t: -99 }, susN: 0,
   masked: false, chairBroken: false, tut: 0, subject: 0, rare: {}, log: [], introT: 0, endT: 0, teacherBig: false,
 }
 function resetState(seed) {
   S.seed = seed; S.rand = mulberry(seed * 7919 + 13)
-  S.t = 0; S.speed = 1; S.rumbles = []; S.exts = []; S.uses = { ...D.USES }; S.prog = 0; S.pauseUntil = 0
-  S.rumble = 0; S.safe = 0; S.bust = 0; S.extSafe = 0; S.wasted = 0; S.R = 0; S.lastBust = -99; S.coughN = 0; S.chairN = 0
+  S.t = 0; S.speed = 1; S.rumbles = []; S.exts = []
+  S.rumble = 0; S.safe = 0; S.bust = 0; S.extSafe = 0; S.wasted = 0; S.R = 0; S.lastBust = -99
+  S.coughUntil = 0; S.chairOff = false; S.penDown = false; S.busyUntil = 0; S.busyKind = null
+  S.ans = 0; S.strokes = 0; S.readUntil = 0; S.lastWrite = -9; S.sus = { k: null, n: 0, t: -99 }; S.susN = 0
   S.masked = false; S.chairBroken = false; S.log = []; S.introT = 0; S.endT = 0
   S.subject = Math.floor(S.rand() * 5)
   S.rare = { ticket: S.rand() < 0.45, teacher: S.rand() < 0.3, teacherBig: S.rand() < 0.1 }
@@ -58,7 +62,7 @@ function makeSchedule() {
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[pool[i], pool[j]] = [pool[j], pool[i]] }
   if (tutorial) { const k = pool.indexOf(1); if (k > 0) [pool[0], pool[k]] = [pool[k], pool[0]] }
   times.forEach((t0, i) => {
-    const B = lerp(0.72, 0.52, t0 / DUR)
+    const B = lerp(0.8, 0.6, t0 / DUR)
     S.rumbles.push({ i, t0, B, onset: t0 + 3 * B, size: pool[i], feint: false, done: false, cover: null, coverT: 0, res: null, played: false, beats: 0 })
   })
   // ひっかけ（光ったけど鳴らない）を2〜3個。最初の2つは本物
@@ -97,8 +101,8 @@ function step() {
   if (S.mode !== 'play') return
   const dt = DT * S.speed
   S.t += dt
-  // 書く（鉛筆があって手が空いている時だけ）
-  if (S.uses.pen > 0 && S.t >= S.pauseUntil) S.prog = Math.min(D.QN, S.prog + dt / D.Q_SEC)
+  // 拾う・座り直すが終わった
+  if (S.busyKind && S.t >= S.busyUntil) { if (S.busyKind === 'pick') { S.penDown = false; onPicked() } if (S.busyKind === 'sit') S.chairOff = false; S.busyKind = null }
   // 周りの音
   for (const e of S.exts) {
     if (!e.started && S.t >= e.on) { e.started = true; onExtStart(e) }
@@ -118,7 +122,9 @@ function step() {
   // チュートリアル: 最初の1回は鳴る直前でゆっくりにして、押すまで待つ
   if (S.tut === 0) {
     const r0 = S.rumbles[0]
-    if (r0 && S.t >= r0.t0 && !r0.done && !r0.cover) { S.speed = S.t > r0.onset - 0.05 ? 0 : 0.45; tutHint(S.t > r0.t0 + r0.B ? 2 : 1) }
+    if (r0 && S.t < r0.t0 - 0.6) tutHint(5)
+    else if (r0 && S.t >= r0.t0 && !r0.done && !r0.cover) { S.speed = S.t > r0.onset - 0.03 ? 0 : 0.45; tutHint(S.t > r0.t0 + r0.B ? 2 : 1) }
+    else if (r0 && !r0.done) tutHint(0)
     if (r0 && r0.done) { S.speed = 1; S.tut = 1; tutHint(0) }
   } else if (S.tut === 1) {
     const e = S.exts.find(x => x.kind === 'drill' && S.t > x.tell && S.t < x.off)
@@ -130,12 +136,18 @@ function activeExt(at, size) { return S.exts.find(e => e.on <= at + 0.05 && e.of
 function anyExtAt(at) { return S.exts.find(e => e.on <= at + 0.05 && e.off >= at + 0.3) }
 function windowRumble(at) { return S.rumbles.find(r => !r.done && at >= r.onset - D.WIN_PRE && at <= r.onset + D.WIN_POST) }
 
-// 押す
+// 押す（咳払い・椅子・ペン。椅子がずれている時は座り直す、ペンが床なら拾う）
+function canUse(k) {
+  if (S.mode !== 'play' || S.t < S.busyUntil) return false
+  if (k === 'cough') return S.t >= S.coughUntil
+  return true
+}
 function press(k) {
-  if (S.mode !== 'play' || S.uses[k] <= 0) return false
+  if (!canUse(k)) return false
   if (S.tut === 0) { const r0 = S.rumbles[0]; if (!r0 || S.t < r0.t0) return false }
-  S.uses[k]--
-  S.pauseUntil = Math.max(S.pauseUntil, S.t + D.PAUSE[k])
+  if (k === 'pen' && S.penDown) { S.busyUntil = S.t + D.PICK; S.busyKind = 'pick'; fx.pickT = 0.01; Snd.play('step', { vol: 0.3 }); return true }
+  if (k === 'chair' && S.chairOff) { S.busyUntil = S.t + D.RESIT; S.busyKind = 'sit'; fx.sitT = 0.01; Snd.play('creak', { vol: 0.25, rate: 1.3 }); return true }
+  S.readUntil = Math.max(S.readUntil, S.t + D.PAUSE[k])
   const r = windowRumble(S.t)
   let wasted = false
   if (r && !r.feint) { if (!r.cover) { r.cover = k; r.coverT = S.t } }
@@ -143,12 +155,24 @@ function press(k) {
   if (r && r.feint) r.cover = k
   S.log.push({ t: +S.t.toFixed(2), k, r: r ? r.i : -1 })
   onCover(k, wasted)
-  if (k === 'cough') { S.coughN++; if (S.coughN === 2 && S.uses.cough > 0) say('proctor', T().sCold); if (S.uses.cough === 0) { S.masked = true; fx.maskT = 0.01 } }
-  if (k === 'chair') { S.chairN++; if (S.uses.chair === 0) { S.chairBroken = true; fx.breakT = 0.01 } }
-  if (k === 'pen') dropPencil()
+  if (k === 'cough') S.coughUntil = S.t + D.COUGH_CD
+  if (k === 'chair') S.chairOff = true
+  if (k === 'pen') { S.penDown = true; dropPencil() }
+  // 同じ物を続けて使いすぎると監督が怪しむ
+  if (S.sus.k === k && S.t - S.sus.t < D.SUS_WIN) S.sus.n++; else S.sus = { k, n: 1, t: S.t }
+  S.sus.t = S.t
+  if (S.sus.n === D.SUS_N - 1) { say('proctor', { cough: T().sCold, chair: T().sFidget, pen: T().sAgain }[k]); if (PEOPLE.proctor) PEOPLE.proctor.lookT = 3 }
+  if (S.sus.n >= D.SUS_N) { S.susN++; S.sus.n = 0; S.R = Math.min(3, S.R + 1); S.lastBust = S.t; onSuspect(k) }
   if (r && !r.feint && r.played) resolve(r)
-  refreshButtons()
   if (S.tut === 0 && r && r.i === 0) S.speed = 1
+  return true
+}
+// 答案をタップして解く（4回で1問。解いた後は次の問題を読む間がある）
+function write() {
+  if (S.mode !== 'play' || S.penDown || S.t < S.busyUntil || S.t < S.readUntil || S.t - S.lastWrite < D.TAP_MIN || S.ans >= D.QN) return false
+  if (S.tut === 0 && S.speed === 0) return false
+  S.lastWrite = S.t; S.strokes++
+  if (S.strokes >= D.STROKES) { S.strokes = 0; S.ans++; S.readUntil = S.t + D.READ; onAnswer() }
   return true
 }
 function resolve(r) {
@@ -165,7 +189,7 @@ function resolve(r) {
   r.res = res
   S.rumble++
   if (res === 'safe' || res === 'ext') { S.safe++; if (res === 'ext') S.extSafe++ }
-  else { S.bust++; S.R = Math.min(3, S.R + 1); S.lastBust = S.t; S.pauseUntil = Math.max(S.pauseUntil, S.t + D.PAUSE.bust) }
+  else { S.bust++; S.R = Math.min(3, S.R + 1); S.lastBust = S.t; S.readUntil = Math.max(S.readUntil, S.t + D.PAUSE.bust) }
   onResolve(r)
 }
 function beginExam() { S.mode = 'play'; S.t = 0; bigMsg(T().go, 1.0); Snd.play('paper', { vol: 0.8 }); Snd.play('chime', { vol: 0.5, rate: 0.9 }) }
@@ -177,11 +201,11 @@ function endExam() {
   else setTimeout(() => say('grandma', T().sEndGrand), 600)
 }
 function judge() {
-  const ans = Math.floor(S.prog)
-  const val = S.safe * 8 - S.bust * 18 + ans * 2.2 - S.wasted * 2
-  let rank = D.RANKS.find(x => val >= x[0])[1]
-  const blank = S.uses.pen === 0 && ans < 8
-  return { val: Math.round(val), rank, blank, ans, rumble: S.rumble, safe: S.safe, bust: S.bust, extSafe: S.extSafe, wasted: S.wasted }
+  const ans = S.ans
+  const val = S.safe * 8 - S.bust * 18 + ans * D.ANS_PT - S.susN * 10 - S.wasted * 1
+  const rank = D.RANKS.find(x => val >= x[0])[1]
+  const blank = ans < 6
+  return { val: Math.round(val), rank, blank, ans, rumble: S.rumble, safe: S.safe, bust: S.bust, extSafe: S.extSafe, wasted: S.wasted, sus: S.susN }
 }
 
 // ---------- 3D
@@ -324,12 +348,12 @@ PCHAIR.children.forEach(m => { if (m.geometry && m.geometry.parameters && m.geom
 const PENCILS = []
 {
   const body = std(0x2f8a4e, { roughness: 0.5 }), wood = std(0xe9cfa5), lead = std(0x333333)
-  for (let i = 0; i < 3; i++) {
-    const p = new THREE.Group(); p.position.set(0.2 - i * 0.045, DESK_H + 0.03, 0.05 + i * 0.01); p.rotation.set(0, 0.25 - i * 0.12, Math.PI / 2); PDESK.add(p)
+  for (let i = 0; i < 1; i++) {   // 鉛筆は1本。落としたら床から拾う
+    const p = new THREE.Group(); p.position.set(0.12, DESK_H + 0.03, 0.06); p.rotation.set(0, 0.35, Math.PI / 2); p.scale.setScalar(1.3); PDESK.add(p)
     mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.17, 6), body, 0, 0, 0, p)
     mesh(new THREE.ConeGeometry(0.009, 0.025, 6), wood, 0, 0.097, 0, p)
     mesh(new THREE.ConeGeometry(0.003, 0.008, 6), lead, 0, 0.11, 0, p)
-    p.userData = { fall: -1, v: new THREE.Vector3(), w: 0 }
+    p.userData = { fall: -1, v: new THREE.Vector3(), w: 0, home: p.position.clone(), homeR: p.rotation.clone() }
     PENCILS.push(p)
   }
   mesh(new THREE.BoxGeometry(0.05, 0.02, 0.025), std(0xffffff), -0.24, DESK_H + 0.03, 0.12, PDESK)
@@ -422,7 +446,7 @@ const sweat = []
 for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), new THREE.MeshBasicMaterial({ color: 0x9fd4ff, transparent: true, opacity: 0.9, depthTest: false })); s.renderOrder = 22; s.visible = false; scene.add(s); sweat.push(s) }
 
 // ---------- 演出（見た目だけの状態）
-const fx = { twitch: 0, twitchSize: 1, shake: 0, maskT: 0, breakT: 0, glowK: 0, ringK: 0, extKinds: {}, coverAnim: { k: null, t: 0 }, lookAll: 0, camK: 0 }
+const fx = { twitch: 0, twitchSize: 1, shake: 0, maskT: 0, breakT: 0, pickT: 0, sitT: 0, suspT: 0, glowK: 0, ringK: 0, extKinds: {}, coverAnim: { k: null, t: 0 }, lookAll: 0, camK: 0 }
 function onTwitch(r) {
   fx.twitch = 1; fx.twitchSize = r.size
   if (r.beats >= 2) Snd.play('pre', { vol: 0.12 + 0.08 * r.size, rate: 1.1 - 0.1 * r.size })
@@ -462,8 +486,16 @@ function onResolve(r) {
   }
 }
 function onReactDown() {}
+function onSuspect(k) {
+  // 監督が怪しんで横まで来る。咳払いならマスクを置いていく（見た目だけ。咳払いはそのまま使える）
+  fx.suspT = 0.01; glanceAll(2.5, 0.6)
+  if (k === 'cough' && !S.masked) { S.masked = true; fx.maskT = 0.01 }
+  verdict(T().vSus, false)
+}
+function onPicked() { const p = PENCILS[0]; p.userData.fall = -1; p.position.copy(p.userData.home); p.rotation.copy(p.userData.homeR) }
+function onAnswer() { Snd.play('paper', { vol: 0.18, rate: 1.4 }) }
 function dropPencil() {
-  const p = PENCILS.find(x => x.userData.fall < 0); if (!p) return
+  const p = PENCILS[0]; if (p.userData.fall >= 0) return
   p.userData.fall = 0; p.userData.v.set(0.6 + Math.random() * 0.4, 0.8, 0.3); p.userData.w = 8 + Math.random() * 6
 }
 function glanceAll(sec, chance) { for (const k of Object.keys(SEATS)) { const c = PEOPLE[k]; if (!c || k === 'player') continue; if (Math.random() < chance || k.startsWith('neighbor')) c.lookT = Math.max(c.lookT, sec * (0.7 + Math.random() * 0.6)) } if (PEOPLE.proctor) PEOPLE.proctor.lookT = Math.max(PEOPLE.proctor.lookT, sec) }
@@ -491,8 +523,8 @@ function tutHint(n) {
   const h = $('hint'), f = $('finger')
   for (const b of document.querySelectorAll('.er')) b.classList.remove('ping')
   if (!n) { h.hidden = true; f.toggleAttribute('hidden', true); return }
-  h.textContent = [null, T().tut1, T().tut2, T().tut3, T().tut4][n]; h.hidden = false
-  if (n === 2) { const b = $('b_cough'); b.classList.add('ping'); const r = b.getBoundingClientRect(); f.style.left = (r.left + r.width / 2 - 8) + 'px'; f.style.top = (r.top + r.height / 2 - 6) + 'px'; f.toggleAttribute('hidden', false) } else f.toggleAttribute('hidden', true)
+  h.textContent = [null, T().tut1, T().tut2, T().tut3, T().tut4, T().tut5][n]; h.hidden = false
+  if (n === 5) { const b = $('sheetBtn'), r = b.getBoundingClientRect(); f.style.left = (r.left + r.width / 2 - 8) + 'px'; f.style.top = (r.top + r.height / 2 - 6) + 'px'; f.toggleAttribute('hidden', false) } else if (n === 2) { const b = $('b_cough'); b.classList.add('ping'); const r = b.getBoundingClientRect(); f.style.left = (r.left + r.width / 2 - 8) + 'px'; f.style.top = (r.top + r.height / 2 - 6) + 'px'; f.toggleAttribute('hidden', false) } else f.toggleAttribute('hidden', true)
   while (FLOATS.length > 1) FLOATS.shift().el.remove()
 }
 function updateFloats(dt) {
@@ -528,6 +560,27 @@ function resize() {
 addEventListener('resize', resize); resize()
 
 // ---------- 見た目の更新
+// お腹の輪: お腹の印（動かない輪）に、外から縮む輪が重なった瞬間が押す時。ひっかけは途中で消える
+const RING = { el: null, a: null, m: null }
+function updateRing(act, tm) {
+  if (!RING.el) { RING.el = $('ring'); RING.a = $('ringA'); RING.m = $('ringM') }
+  const show = act && S.mode === 'play' && PEOPLE.player
+  if (!show) { if (!RING.el.hasAttribute('hidden')) RING.el.toggleAttribute('hidden', true); return }
+  if (RING.el.hasAttribute('hidden')) RING.el.toggleAttribute('hidden', false)
+  const p = glow.position.clone().project(camera)
+  const W = innerWidth, H = innerHeight, x = clamp((p.x * 0.5 + 0.5) * W, 70, W - 70), y = clamp((-p.y * 0.5 + 0.5) * H, 120, H - 190)
+  RING.el.style.transform = `translate(${x - 110}px,${y - 110}px)`
+  const k = clamp((S.t - act.t0) / (act.onset - act.t0), 0, 1), col = CSSG[act.size]
+  const R0 = 24, r = R0 + 76 * (1 - k)
+  RING.a.setAttribute('r', r.toFixed(1)); RING.a.setAttribute('stroke', col)
+  RING.m.setAttribute('stroke', col)
+  let op = 1
+  if (act.feint) op = k < 0.45 ? 1 : Math.max(0, 1 - (k - 0.45) / 0.2)
+  RING.a.style.opacity = op
+  RING.a.setAttribute('stroke-width', S.t >= act.onset - D.WIN_PRE && !act.feint ? 9 : 6)
+  RING.m.style.opacity = act.feint && k > 0.65 ? 0.25 : 1
+  RING.el.dataset.k = k.toFixed(2)
+}
 let clockT = 0
 const _q = new THREE.Vector3()
 function render(dt) {
@@ -561,15 +614,20 @@ function render(dt) {
     if (pl.armR) { pl.armR.rotation.x += -hold * 0.6; pl.armR.rotation.y += hold * 0.8 }
     if (pl.torso) pl.torso.rotation.x += hold * 0.25
     // 書く手（右腕を小さく動かす）
-    if (S.mode === 'play' && S.uses.pen > 0 && S.t >= S.pauseUntil && pl.armR && hold < 0.2) pl.armR.rotation.x += -0.25 + 0.07 * Math.sin(tm * 14)
+    if (S.mode === 'play' && S.t - S.lastWrite < 0.35 && pl.armR && hold < 0.2) pl.armR.rotation.x += -0.25 + 0.09 * Math.sin(tm * 22)
+    // 鉛筆を拾う（かがむ）・座り直す（小さく跳ねる）
+    if (S.busyKind === 'pick') { const e = Math.sin(clamp((S.t - (S.busyUntil - D.PICK)) / D.PICK, 0, 1) * Math.PI); if (pl.torso) pl.torso.rotation.x += 0.7 * e; if (pl.armR) { pl.armR.rotation.x += -1.1 * e; pl.armR.rotation.y += -0.5 * e } pl.g.position.x += 0.06 * e }
+    if (S.busyKind === 'sit') { const e = Math.sin(clamp((S.t - (S.busyUntil - D.RESIT)) / D.RESIT, 0, 1) * Math.PI); pl.g.position.y += 0.05 * e }
     // ごまかしの動き
     if (fx.coverAnim.k) {
       fx.coverAnim.t += dt; const a = fx.coverAnim.t, e = Math.max(0, 1 - a / 0.7) * Math.min(1, a / 0.08)
       if (fx.coverAnim.k === 'cough' && pl.armL) { pl.armL.rotation.z += -1.3 * e; if (pl.head) pl.head.rotation.x += -0.25 * e * Math.abs(Math.sin(a * 18)) }
       if (fx.coverAnim.k === 'chair') { pl.g.rotation.z = 0.08 * e * Math.sin(a * 20); PCHAIR.rotation.z = 0.06 * e * Math.sin(a * 20) }
       if (fx.coverAnim.k === 'pen' && pl.armR) pl.armR.rotation.y += -1.0 * e
-      if (a > 0.8) { fx.coverAnim.k = null; pl.g.rotation.z = 0; PCHAIR.rotation.z = 0 }
+      if (a > 0.8) { fx.coverAnim.k = null }
     }
+    // 椅子がずれたまま（座り直すまで傾いている）
+    if (fx.coverAnim.k !== 'chair') { const tilt = S.chairOff && S.mode === 'play' ? 1 : 0; PCHAIR.rotation.z = lerp(PCHAIR.rotation.z, 0.09 * tilt, 1 - Math.exp(-dt * 10)); PCHAIR.position.x = COLS[1] + 0.05 * tilt; pl.g.rotation.z = lerp(pl.g.rotation.z, 0.07 * tilt, 1 - Math.exp(-dt * 10)) }
     // 光
     if (pl.torso) pl.torso.getWorldPosition(_q); else _q.copy(pl.g.position).setY(0.4)
     glow.position.copy(_q).add(tmpV2.set(0.02, 0.06, -0.1))
@@ -579,23 +637,20 @@ function render(dt) {
     ring.position.copy(glow.position); ring.quaternion.copy(camera.quaternion)
     if (fx.twitch > 0.9) fx.ringK = 1
     fx.ringK = Math.max(0, fx.ringK - dt * 2.2)
-    ring.visible = fx.ringK > 0 && glow.visible; ring.scale.setScalar(1 + (1 - fx.ringK) * (1.2 + gcol * 0.6)); ring.material.color.setHex(GLOW[gcol]); ring.material.opacity = fx.ringK * 0.9
+    ring.visible = false; ring.scale.setScalar(1 + (1 - fx.ringK) * (1.2 + gcol * 0.6)); ring.material.color.setHex(GLOW[gcol]); ring.material.opacity = fx.ringK * 0.9
     // 汗（大きい時だけ）
     const sw = act && !act.feint && act.size === 3 && S.t > act.t0 + act.B
     sweat.forEach((s, i) => { s.visible = !!sw; if (sw) { const ph = (tm * 1.3 + i / 3) % 1; headAt('player', 0.15 - ph * 0.3); s.position.copy(tmpV).add(tmpV2.set((i - 1) * 0.16, 0, 0.05)); s.material.opacity = 1 - ph } })
-    if (maskMesh) maskMesh.visible = S.masked && fx.maskT > 1.6
+    if (maskMesh) maskMesh.visible = S.masked && fx.maskT > 2.6
     if (fx.maskT > 0) fx.maskT += dt
   }
-  // 椅子が壊れる
-  if (S.chairBroken) { fx.breakT += dt; PCHAIR.userData.legs.forEach((l, i) => { l.rotation.z = Math.min(1, fx.breakT * 3) * (i < 2 ? 0.7 : -0.7) }); PCHAIR.userData.seat.position.y = Math.max(0.05, SEAT_H - fx.breakT * 1.2) }
-  else { PCHAIR.userData.legs.forEach(l => { l.rotation.z = 0 }); PCHAIR.userData.seat.position.y = SEAT_H }
-  if (fx.breakT > 0 && fx.breakT < 0.05) { Snd.play('chairbreak', { vol: 0.9 }); say('neighborR', T().sChairBreak) }
   // 鉛筆が落ちる
   for (const p of PENCILS) {
     const u = p.userData; if (u.fall < 0) continue
     if (u.fall < 2) { u.fall += dt; p.position.addScaledVector(u.v, dt); u.v.y -= 9 * dt; p.rotation.x += u.w * dt; if (p.position.y < 0.01) { p.position.y = 0.01; u.v.set(0, 0, 0); u.w = 0 } }
   }
-  if (S.mode === 'title') for (const p of PENCILS) { p.userData.fall = -1 }
+  if (S.mode === 'title' && PENCILS[0].userData.fall >= 0) onPicked()
+  updateRing(act, tm)
   // 周りの人
   const now = S.mode === 'play' ? S.t : 0
   const extNow = k => S.mode === 'play' && S.exts.find(e => e.kind === k && now >= e.tell && now < e.off)
@@ -657,12 +712,12 @@ function render(dt) {
 }
 function updateProctor(dt, tm) {
   const pr = PEOPLE.proctor; if (!pr) return
-  pr.lookT = Math.max(0, pr.lookT - dt)
+  pr.lookT = Math.max(0, pr.lookT - dt); if (fx.suspT > 0) { fx.suspT += dt; if (fx.suspT < 6) pr.lookT = 1 }
   // 行き先: マスクを渡す・反応2以上で横に立つ・ふだんは前と通路を見回る
   let tgt
   const nearP = new THREE.Vector3(0.55, 0, -0.35)
   if (S.mode === 'intro' && S.rare.ticket && S.introT < 4.2) tgt = new THREE.Vector3(-0.45, 0, -2.5)
-  else if (S.mode === 'play' && (S.R >= 2 || (fx.maskT > 0 && fx.maskT < 2.2))) tgt = nearP
+  else if (S.mode === 'play' && (S.R >= 2 || (fx.suspT > 0 && fx.suspT < 6))) tgt = nearP
   else if (S.mode === 'play') { const ph = Math.floor(S.t / 18) % 4; tgt = [new THREE.Vector3(0.2, 0, -4.1), new THREE.Vector3(1.55, 0, -2.6), new THREE.Vector3(-1.55, 0, -1.0), new THREE.Vector3(-0.4, 0, -4.0)][ph] }
   else tgt = new THREE.Vector3(0.2, 0, -4.1)
   const d = tmpV.copy(tgt).sub(pr.g.position); d.y = 0
@@ -686,7 +741,7 @@ function updateProctor(dt, tm) {
     if (S.introT > 1.6 && !S._said1) { S._said1 = 1; say('proctor', T().sCheck) }
     if (S.introT > 2.9 && !S._said2) { S._said2 = 1; say('ticket', T().sTicket); playA(PEOPLE.ticket, 'emote-yes', 0.2, 1, true); setTimeout(() => playA(PEOPLE.ticket, 'sit'), 1400) }
   }
-  if (S.mode === 'play' && fx.maskT > 1.0 && fx.maskT < 1.0 + dt * 1.5) say('proctor', T().sMask)
+  if (S.mode === 'play' && fx.maskT > 2.4 && fx.maskT < 2.4 + dt * 1.5) say('proctor', T().sMask)
   // 最後に監督のお腹が盛大に鳴る（まれ）
   if (S.mode === 'end' && S.teacherBig) { fx.lookAll = 1; for (const k of Object.keys(SEATS)) if (PEOPLE[k] && PEOPLE[k].head) PEOPLE[k].head.rotation.x += 0 }
 }
@@ -710,7 +765,7 @@ function soundOn() { Snd.init(); Snd.loop('amb', 'snd/amb.mp3', 0.18) }
 const VIEWS = ['vTitle', 'vHow', 'vPlay', 'vResult']
 function show(id) { for (const v of VIEWS) $(v).hidden = v !== id }
 function toTitle() { S.mode = 'title'; show('vTitle'); for (const f of FLOATS.splice(0)) f.el.remove(); $('bigMsg').hidden = true; tutHint(0); resetPeople() }
-function resetPeople() { for (const p of PENCILS) { p.userData.fall = -1 } PENCILS.forEach((p, i) => { p.position.set(0.2 - i * 0.045, DESK_H + 0.03, 0.05 + i * 0.01); p.rotation.set(0, 0.25 - i * 0.12, Math.PI / 2) }); fx.maskT = 0; fx.breakT = 0; S._said1 = S._said2 = 0; if (PEOPLE.proctor) PEOPLE.proctor.g.position.set(0.2, 0, -4.1) }
+function resetPeople() { onPicked(); fx.maskT = 0; fx.breakT = 0; fx.pickT = 0; fx.sitT = 0; fx.suspT = 0; S._said1 = S._said2 = 0; if (PEOPLE.proctor) PEOPLE.proctor.g.position.set(0.2, 0, -4.1) }
 function startGame(seed) {
   soundOn()
   try { S.tut = localStorage.getItem('et_tut') === '1' ? 2 : 0 } catch (e) { S.tut = 0 }
@@ -724,24 +779,36 @@ function startGame(seed) {
   Snd.play('paper', { vol: 0.6 })
   if (window.TM) TM.start()
 }
-function buildGrid() { const g = $('aGrid'); if (g.children.length !== D.QN) { g.innerHTML = ''; for (let i = 0; i < D.QN; i++) g.appendChild(document.createElement('i')) } }
+function buildGrid() { const g = $('aGrid'); if (g.children.length !== D.QN) { g.innerHTML = ''; for (let i = 0; i < D.QN; i++) g.appendChild(document.createElement('i')) } const st = $('aStrokes'); if (st.children.length !== D.STROKES) { st.innerHTML = ''; for (let i = 0; i < D.STROKES; i++) st.appendChild(document.createElement('i')) } }
+// ボタンの表示: 咳払いは喉が落ち着くまで暗い（だんだん明るく戻る）。椅子がずれていたら「座り直す」、鉛筆が床なら「拾う」
+const BTN = {}
 function refreshButtons() {
   for (const k of KINDS) {
-    const b = $('b_' + k); if (!b) continue
-    const left = b.querySelector('.left'); let html = ''
-    for (let i = 0; i < D.USES[k]; i++) html += `<i class="${i < S.uses[k] ? '' : 'off'}"></i>`
-    left.innerHTML = html
-    b.disabled = S.uses[k] <= 0
-    let gone = b.querySelector('.gone')
-    if (S.uses[k] <= 0) { if (!gone) { gone = document.createElement('span'); gone.className = 'gone'; b.appendChild(gone) } gone.textContent = k === 'cough' ? (LANG === 'ja' ? 'マスク中' : 'masked') : k === 'chair' ? (LANG === 'ja' ? '空気椅子' : 'no chair') : (LANG === 'ja' ? '鉛筆なし' : 'no pens') }
-    else if (gone) gone.remove()
+    const b = BTN[k] || (BTN[k] = $('b_' + k)); if (!b) continue
+    const nm = k === 'chair' && S.chairOff ? T().bSit : k === 'pen' && S.penDown ? T().bPick : T()[{ cough: 'bCough', chair: 'bChair', pen: 'bPen' }[k]]
+    const n = b.querySelector('.nm'); if (n.textContent !== nm) n.textContent = nm
+    const fix = (k === 'chair' && S.chairOff) || (k === 'pen' && S.penDown)
+    b.classList.toggle('fix', fix)
+    const busy = S.mode === 'play' && S.t < S.busyUntil
+    const cool = k === 'cough' && S.mode === 'play' && S.t < S.coughUntil ? (S.coughUntil - S.t) / D.COUGH_CD : 0
+    b.style.setProperty('--cool', cool.toFixed(2))
+    const dis = busy || cool > 0
+    if (b.disabled !== dis) b.disabled = dis
   }
 }
 function updateHud() {
-  if (S.mode !== 'play' && S.mode !== 'end') return
-  const n = Math.floor(S.prog), cells = $('aGrid').children
-  for (let i = 0; i < cells.length; i++) { const c = cells[i], cls = i < n ? 'on' : (i === n && S.prog - n > 0.5 ? 'half' : ''); if (c.className !== cls) c.className = cls }
-  $('aNum').textContent = `${n}/${D.QN}`
+  if (S.mode !== 'play' && S.mode !== 'end' && S.mode !== 'intro') return
+  const n = S.ans, cells = $('aGrid').children
+  for (let i = 0; i < cells.length; i++) { const c = cells[i], cls = i < n ? 'on' : ''; if (c.className !== cls) c.className = cls }
+  const num = `${n}/${D.QN}`; if ($('aNum').textContent !== num) $('aNum').textContent = num
+  const q = (LANG === 'ja' ? '問' : 'Q') + Math.min(D.QN, n + 1); if ($('aQ').textContent !== q) $('aQ').textContent = q
+  const st = $('aStrokes').children
+  for (let i = 0; i < st.length; i++) { const on = i < S.strokes || (S.t < S.readUntil && S.strokes === 0 && n > 0); if (st[i].classList.contains('on') !== on) st[i].classList.toggle('on', on) }
+  const mins = Math.floor((S.mode === 'play' ? S.t / D.DUR : S.mode === 'end' ? 1 : 0) * 60), tm = `10:${String(mins).padStart(2, '0')}`.replace('10:60', '11:00')
+  if ($('aTime').textContent !== tm) $('aTime').textContent = tm
+  const can = S.mode === 'play' && !S.penDown && S.t >= S.busyUntil && S.t >= S.readUntil && S.ans < D.QN
+  $('sheetBtn').classList.toggle('wait', !can)
+  refreshButtons()
 }
 
 // ---------- 結果
@@ -823,7 +890,8 @@ $('bX').onclick = () => { if (window.TM) TM.share('x'); window.open(xUrl(), '_bl
 $('bLang').onclick = () => { LANG = LANG === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('et_lang', LANG) } catch (e) {} applyLang(); if (S.mode === 'result' && RES) { const keep = [...document.querySelectorAll('#vResult .on')].length; S.mode = 'end'; showResult(); if (keep) revealAll() } }
 $('bMute').onclick = () => { muted = !muted; Snd.init(); Snd.setMute(muted); try { localStorage.setItem('et_mute', muted ? '1' : '0') } catch (e) {} setMuteUI() }
 for (const k of KINDS) $('b_' + k).addEventListener('pointerdown', e => { e.preventDefault(); press(k) })
-addEventListener('keydown', e => { const i = ['1', '2', '3'].indexOf(e.key); if (i >= 0) press(KINDS[i]) })
+$('sheetBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (write()) { const b = $('sheetBtn'); b.classList.remove('tap'); void b.offsetWidth; b.classList.add('tap') } })
+addEventListener('keydown', e => { const i = ['1', '2', '3'].indexOf(e.key); if (i >= 0) press(KINDS[i]); if (e.key === ' ') write() })
 document.addEventListener('visibilitychange', () => { if (document.hidden) lastT = 0 })
 
 // ---------- ループ（固定60Hz）
@@ -840,16 +908,16 @@ function frame(now) {
 
 // ---------- 検証用の窓口
 window.ET = {
-  S, D, PEOPLE, CAM, judge, press, camera, scene, renderer, FLOATS, xUrl, resultCanvas,
+  S, D, PEOPLE, CAM, judge, press, write, canUse, camera, scene, renderer, FLOATS, xUrl, resultCanvas,
   get charsReady() { return charsReady },
-  state: () => ({ mode: S.mode, t: +S.t.toFixed(2), rumble: S.rumble, safe: S.safe, bust: S.bust, ext: S.extSafe, wasted: S.wasted, R: S.R, uses: { ...S.uses }, prog: +S.prog.toFixed(2), masked: S.masked, chairBroken: S.chairBroken }),
+  state: () => ({ mode: S.mode, t: +S.t.toFixed(2), rumble: S.rumble, safe: S.safe, bust: S.bust, ext: S.extSafe, wasted: S.wasted, R: S.R, ans: S.ans, sus: S.susN, penDown: S.penDown, chairOff: S.chairOff }),
   texts: () => FLOATS.length + (!$('hint').hidden ? 1 : 0) + (!$('bigMsg').hidden ? 1 : 0),
   dbg: {
     pause(on) { S.dbgPause = on },
     start(seed, o = {}) { if (o.noTut) window.__etNoTut = true; startGame(seed); S.introT = 99; step() },
     tick(n = 1) { for (let i = 0; i < n; i++) step() },
     step(n = 1) { for (let i = 0; i < n; i++) step(); render(DT * n > 0.1 ? 0.1 : DT * n) },
-    render() { render(0) },
+    render() { updateHud(); render(0) },
     frames(n = 1) { for (let i = 0; i < n; i++) render(DT) },
     fx,
     snapCam() { const ct = camTarget(); camPos.set(...ct.p); camLook.set(...ct.l); render(0) },

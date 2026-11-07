@@ -108,7 +108,7 @@ for (const size of [1, 2, 3]) {
 await t('小さすぎる音（中に咳払い）→ ばれる', async () => { const r = await tryOne(p, 5, 2, { k: 'cough' }); expect(r.res === 'small', r); return r })
 await t('大きすぎる音（小にペン落とし）→ ばれる（やりすぎ）', async () => { const r = await tryOne(p, 5, 1, { k: 'pen' }); expect(r.res === 'big', r); return r })
 await t('早すぎる（鳴る1秒前）→ 空振りしてからばれる', async () => { const r = await tryOne(p, 5, 2, { k: 'chair', dt: -1.0 }); expect(r.res === 'bust', r); return r })
-await t('少し遅れても（0.35秒後）間に合う', async () => { const r = await tryOne(p, 5, 2, { k: 'chair', dt: 0.35 }); expect(r.res === 'safe', r); return r })
+await t('反応が遅れても（0.4秒後）間に合う', async () => { const r = await tryOne(p, 5, 2, { k: 'chair', dt: 0.4 }); expect(r.res === 'safe', r); return r })
 await t('周りの音（大きさが足りる）に重なると、何もしなくても安全', async () => {
   const r = await p.evaluate(() => { for (let s = 1; s < 40; s++) { ET.dbg.start(s, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => r.ext === 'drill' || r.ext === 'chime'); if (!x) continue; ET.dbg.tick(Math.round((x.onset + 1) * 60)); return { seed: s, res: x.res, ext: x.ext } } })
   expect(r && r.res === 'ext', r); return r
@@ -117,56 +117,77 @@ await t('わな: くしゃみ（中）に大きいお腹が重なると、何も
   const r = await p.evaluate(() => { for (let s = 1; s < 60; s++) { ET.dbg.start(s, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => r.ext === 'sneeze-trap'); if (!x) continue; ET.dbg.tick(Math.round((x.onset + 1) * 60)); const a = x.res; ET.dbg.start(s, { noTut: true }); const y = ET.S.rumbles[x.i]; ET.dbg.tick(Math.round((y.onset + 0.1) * 60)); ET.press('pen'); ET.dbg.tick(60); return { seed: s, nothing: a, pen: y.res } } })
   expect(r && r.nothing === 'bust' && r.pen === 'safe', r); return r
 })
-await t('ひっかけ（光がしぼむ）は鳴らない。押すと空振り（回数は数えない）', async () => {
-  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => r.feint); ET.dbg.tick(Math.round(x.onset * 60)); const before = S.rumble; ET.press('chair'); ET.dbg.tick(60); return { res: x.res, wasted: S.wasted, counted: S.rumble - before, uses: S.uses.chair } })
-  expect(r.res === 'feint' && r.wasted === 1 && r.counted === 0 && r.uses === 2, r); return r
+await t('ひっかけ（輪が途中で消える）は鳴らない。押すと空振り（回数は数えない）', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => r.feint); ET.dbg.tick(Math.round((x.t0 + (x.onset - x.t0) * 0.8) * 60)); ET.dbg.render(); const op = +document.getElementById('ringA').style.opacity; ET.dbg.tick(Math.round((x.onset - S.t) * 60)); const before = S.rumble; ET.press('chair'); ET.dbg.tick(60); return { res: x.res, wasted: S.wasted, counted: S.rumble - before, ringOpacity: op } })
+  expect(r.res === 'feint' && r.wasted === 1 && r.counted === 0 && r.ringOpacity < 0.2, r); return r
 })
-await t('咳払いを使い切るとマスク（ボタンが押せない）', async () => {
-  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(120); for (let i = 0; i < 4; i++) { ET.press('cough'); ET.dbg.tick(30) } return { masked: ET.S.masked, uses: ET.S.uses.cough, dis: document.getElementById('b_cough').disabled } })
-  expect(r.masked && r.uses === 0 && r.dis, r); return r
+await t('輪: 縮む輪が印に重なった時（半径が印と同じ）に押す → ごまかした', async () => {
+  const r = await p.evaluate(() => { for (let s = 5; s < 40; s++) { ET.dbg.start(s, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => !r.feint && !r.ext); ET.dbg.tick(Math.round((x.t0 + 0.05) * 60)); ET.dbg.render(); const r0 = +document.getElementById('ringA').getAttribute('r'); ET.dbg.tick(Math.round((x.onset - S.t) * 60)); ET.dbg.render(); const r1 = +document.getElementById('ringA').getAttribute('r'), m = +document.getElementById('ringM').getAttribute('r'); ET.press(['cough', 'chair', 'pen'][x.size - 1]); ET.dbg.tick(60); return { start: r0, atPress: r1, mark: m, res: x.res } } })
+  expect(r.start > 90 && Math.abs(r.atPress - r.mark) < 2 && r.res === 'safe', r); return r
 })
-await t('椅子を3回きしませると壊れる', async () => {
-  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(120); for (let i = 0; i < 3; i++) { ET.press('chair'); ET.dbg.tick(30) } return { broken: ET.S.chairBroken, dis: document.getElementById('b_chair').disabled } })
-  expect(r.broken && r.dis, r); return r
+await t('輪: まだ大きい時（印の2倍）に押す → 早すぎてばれる', async () => {
+  const r = await p.evaluate(() => { for (let s = 5; s < 40; s++) { ET.dbg.start(s, { noTut: true }); const S = ET.S, x = S.rumbles.find(r => !r.feint && !r.ext); const tk = x.t0 + (x.onset - x.t0) * (1 - 24 / 76); ET.dbg.tick(Math.round(tk * 60)); ET.dbg.render(); const rr = +document.getElementById('ringA').getAttribute('r'); ET.press(['cough', 'chair', 'pen'][x.size - 1]); ET.dbg.tick(Math.round((x.onset + 1 - S.t) * 60)); return { r: rr, res: x.res } } })
+  expect(r.r > 44 && r.res === 'bust', r); return r
 })
-await t('ペンを3本落とすと答案が進まない', async () => {
-  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(120); for (let i = 0; i < 3; i++) { ET.press('pen'); ET.dbg.tick(30) } const a = ET.S.prog; ET.dbg.tick(600); return { a: +a.toFixed(2), b: +ET.S.prog.toFixed(2), pens: ET.S.uses.pen } })
-  expect(r.pens === 0 && r.a === r.b, r); return r
+await t('咳払いは使うと喉が落ち着くまで押せず、5秒で戻る', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60); ET.press('cough'); ET.dbg.tick(10); const a = ET.canUse('cough'), cool = +getComputedStyle(document.getElementById('b_cough')).getPropertyValue('--cool'); ET.dbg.tick(60 * 5); return { a, b: ET.canUse('cough'), cool } })
+  expect(!r.a && r.b, r); return r
 })
-await t('ペンがあれば答案が進む（20問まで）', async () => {
-  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60 * 30); return +ET.S.prog.toFixed(2) })
-  expect(r > 3 && r < 6, r); return r
+await t('椅子はきしませるとずれて「座り直す」になり、座り直すと戻る', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60); ET.press('chair'); ET.dbg.render(); const label = document.querySelector('#b_chair .nm').textContent, off = ET.S.chairOff; ET.press('chair'); ET.dbg.tick(45); return { label, off, after: ET.S.chairOff } })
+  expect(r.off && r.label === '座り直す' && !r.after, r); return r
 })
-await t('何もしないで1回終える → 最低の判定（E）', async () => {
-  const r = await p.evaluate(() => { const o = []; for (let s = 1; s <= 8; s++) { ET.dbg.start(s * 13, { noTut: true }); ET.dbg.finish(); o.push(ET.judge().rank) } return o })
-  expect(r.every(x => x === 'E'), r); return r
+await t('ペンを落とすと答案が書けず、拾うと（1.2秒）書ける', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60); ET.press('pen'); ET.dbg.tick(30); const w0 = ET.write(); ET.press('pen'); ET.dbg.tick(30); const busy = !ET.canUse('chair'); ET.dbg.tick(50); return { w0, busy, penDown: ET.S.penDown, w1: ET.write() } })
+  expect(!r.w0 && r.busy && !r.penDown && r.w1, r); return r
+})
+await t('答案: 5回タップで1問。速すぎるタップは数えない。解いた後は少し読む間', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(30); const S = ET.S; let ok = 0; for (let i = 0; i < 5; i++) { if (ET.write()) ok++; ET.dbg.tick(8) } const a1 = S.ans, fast = ET.write(); ET.dbg.tick(60); ET.write(); ET.write(); return { ok, a1, fast, strokes: S.strokes } })
+  expect(r.ok === 5 && r.a1 === 1 && !r.fast && r.strokes === 1, r); return r
+})
+await t('答案はタップしないと進まない・解いた問題は判定に入る', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60 * 20); const idle = ET.S.ans; ET.S.ans = 30; const hi = ET.judge().val; ET.S.ans = 0; const lo = ET.judge().val; return { idle, hi, lo } })
+  expect(r.idle === 0 && r.hi > r.lo, r); return r
+})
+await t('同じ物を続けて使いすぎると監督が怪しむ（7秒以内に3回）', async () => {
+  const r = await p.evaluate(() => { ET.dbg.start(5, { noTut: true }); ET.dbg.tick(60); for (let i = 0; i < 3; i++) { ET.press('cough'); ET.dbg.tick(Math.round(5.05 * 60)) } const a = { sus: ET.S.susN, R: ET.S.R }; ET.dbg.start(6, { noTut: true }); ET.dbg.tick(60); ET.press('cough'); ET.dbg.tick(330); ET.press('chair'); ET.dbg.tick(60); ET.press('chair'); ET.dbg.tick(60); ET.press('chair'); return { a, mixed: ET.S.susN } })
+  expect(r.a.sus === 1 && r.a.R >= 1 && r.mixed === 0, r); return r
+})
+await t('使い切って何もできない時間が無い（全部押し続けても、押せる物か答案が1.3秒以内に必ずある）', async () => {
+  const r = await p.evaluate(() => { const o = []; for (const seed of [3, 8, 21]) { ET.dbg.start(seed, { noTut: true }); const S = ET.S, D = ET.D; let idle = 0, max = 0, n = 0; while (S.mode === 'play') { if (n++ % 20 === 0) for (const k of ['cough', 'chair', 'pen']) ET.press(k); const any = ET.canUse('cough') || ET.canUse('chair') || ET.canUse('pen') || (!S.penDown && S.t >= S.busyUntil); if (any) idle = 0; else { idle += 1 / 60; max = Math.max(max, idle) } ET.dbg.tick(1) } o.push(+max.toFixed(2)) } return o })
+  expect(r.every(x => x <= 1.3), r); return r
+})
+await t('何もしないで1回終える → 最低の判定（白紙の勇者）', async () => {
+  const r = await p.evaluate(() => { const o = []; for (let s = 1; s <= 8; s++) { ET.dbg.start(s * 13, { noTut: true }); ET.dbg.finish(); const j = ET.judge(); o.push(j.blank ? 'blank' : j.rank) } return o })
+  expect(r.every(x => x === 'blank'), r); return r
 })
 await t('同じ押し方なら同じ結果（乱数で当たり外れを決めない）', async () => {
   const r = await p.evaluate(() => { const run = () => { ET.dbg.start(31, { noTut: true }); const S = ET.S; let i = 0; while (S.mode === 'play') { const x = S.rumbles.find(r => !r.done && !r.feint && Math.abs(S.t - r.onset - 0.1) < 0.009); if (x) ET.press(['cough', 'chair', 'pen'][x.size - 1]); ET.dbg.tick(1); if (++i > 20000) break } ET.dbg.finish(); return JSON.stringify(ET.judge()) }; return [run(), run()] })
   expect(r[0] === r[1], r); return JSON.parse(r[0])
 })
-await t('HUD にバー・メーターが無い（答案と時計で見せる）', async () => {
+await t('HUD にバー・メーターが無い（答案と時計と輪で見せる）', async () => {
   const r = await p.evaluate(() => [...document.querySelectorAll('#vPlay progress,#vPlay meter,#vPlay [class*=bar],#vPlay [class*=gauge],#vPlay [class*=meter]')].length)
   expect(r === 0, r)
 })
 
 // ---- チュートリアル（最初の1回だけ）
-await t('チュートリアル: 最初の黄色で止まり、咳払いを押すと進む。2回目からは出ない', async () => {
+await t('チュートリアル: 最初は答案をタップと教え、最初の黄色の輪が重なると止まり、咳払いで進む。2回目からは出ない', async () => {
   const q = await open(browser)
   await q.evaluate(() => { ET.dbg.pause(true) })
   await q.click('#bStart')
   const r = await q.evaluate(() => {
-    const S = ET.S; S.introT = 99; ET.dbg.tick(1)
+    const S = ET.S; S.introT = 99; ET.dbg.tick(30); ET.dbg.render()
+    const first = document.getElementById('hint').textContent, fingerSheet = !document.getElementById('finger').hasAttribute('hidden')
     const r0 = S.rumbles[0]; for (let i = 0; i < 60 * 60 && S.speed !== 0; i++) ET.dbg.tick(1); ET.dbg.tick(30)
     const stopped = S.speed === 0 && !r0.done, hint = document.getElementById('hint').textContent, size = r0.size
     const finger = !document.getElementById('finger').hasAttribute('hidden')
     ET.press('cough'); ET.dbg.tick(60)
-    return { stopped, hint, size, finger, res: r0.res, speed: S.speed, tut: S.tut }
+    return { first, fingerSheet, stopped, hint, size, finger, res: r0.res, speed: S.speed, tut: S.tut }
   })
   await q.evaluate(() => { ET.dbg.finish(); ET.dbg.result() })
   const again = await q.evaluate(() => { ET.dbg.start(9); return ET.S.tut })
   await q.context().close()
-  expect(r.stopped && r.size === 1 && r.finger && r.res === 'safe' && r.speed === 1 && again === 2, { ...r, again }); return r
+  expect(r.first === '答案をタップして解く' && r.fingerSheet && r.stopped && r.size === 1 && r.finger && r.res === 'safe' && r.speed === 1 && again === 2, { ...r, again }); return r
 })
 
 // ---- 文字の量（実時間で40秒遊んで、同時に出ている文字を数える）
@@ -180,6 +201,7 @@ await t('文字は同時に2つまで・吹き出しは12字前後（実時間�
       // 鳴る瞬間に、たまに押す（反応の文字を出させる）
       const x = S.rumbles.find(r => !r.done && !r.feint && S.t > r.onset && S.t < r.onset + 0.2)
       if (x && Math.random() < 0.6) ET.press(['cough', 'chair', 'pen'][x.size - 1])
+      ET.write(); if (S.penDown && Math.random() < 0.1) ET.press('pen'); if (S.chairOff && Math.random() < 0.1) ET.press('chair')
       max = Math.max(max, ET.texts())
       for (const el of document.querySelectorAll('#fx > *, #hint:not([hidden]), #bigMsg:not([hidden])')) { const s = el.textContent; seen.add(s); if ([...s].length > 13) long.add(s) }
     }, 50)
@@ -259,11 +281,11 @@ for (const [w, h, name] of SIZES) for (const loc of ['ja-JP', 'en-US']) {
   views.title = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-${loc}-title.png` })
   await q.click('#bHow'); views.how = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-${loc}-how.png` }); await q.click('#bHowBack')
   await q.evaluate(() => ET.dbg.pause(true)); await q.click('#bStart')
-  await q.evaluate(() => { const S = ET.S; S.introT = 99; ET.dbg.tick(1); for (let i = 0; i < 60 * 60 && S.speed !== 0; i++) ET.dbg.tick(1); ET.dbg.render() })
+  await q.evaluate(() => { const S = ET.S; S.introT = 99; ET.dbg.tick(1); for (let i = 0; i < 60 * 60 && S.speed !== 0; i++) ET.dbg.tick(1); ET.dbg.snapCam(); ET.dbg.render() })
   await q.waitForTimeout(150)
   views.tut = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-${loc}-tut.png` })
   const hintIn = await q.evaluate(() => { const h = document.getElementById('hint').getBoundingClientRect(), f = document.getElementById('finger').getBoundingClientRect(); return h.left >= 0 && h.right <= innerWidth && !document.getElementById('hint').hidden && f.width > 0 && f.bottom <= innerHeight })
-  await q.evaluate(() => { ET.press('cough'); ET.dbg.tick(60 * 20); ET.dbg.render() })
+  await q.evaluate(() => { ET.press('cough'); ET.dbg.tick(60 * 20); for (let i = 0; i < 12; i++) ET.write(); ET.dbg.render() })
   views.play = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-${loc}-play.png` })
   await q.evaluate(() => { ET.dbg.finish(); ET.dbg.result() }); await q.waitForTimeout(300)
   views.result = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-${loc}-result.png` })
@@ -286,8 +308,10 @@ await t('WebKit: タップで始めて、ボタンをタップで押せる', asy
   await wp.evaluate(() => { ET.S.introT = 99; ET.dbg.pause(true); ET.dbg.tick(2); for (let i = 0; i < 60 * 60 && ET.S.speed !== 0; i++) ET.dbg.tick(1); ET.dbg.pause(false) })
   await wp.tap('#b_cough')
   await wp.waitForFunction(() => ET.S.rumbles[0].res, null, { timeout: 4000 }).catch(() => {})
-  const r = await wp.evaluate(() => ({ uses: ET.S.uses.cough, res: ET.S.rumbles[0].res }))
-  expect(r.uses === 2 && r.res === 'safe', r); return r
+  await wp.evaluate(() => { ET.dbg.pause(true); ET.dbg.tick(120); ET.dbg.pause(false) })
+  await wp.tap('#sheetBtn')
+  const r = await wp.evaluate(() => ({ cool: !ET.canUse('cough'), res: ET.S.rumbles[0].res, strokes: ET.S.strokes }))
+  expect(r.res === 'safe' && r.strokes === 1, r); return r
 })
 await t('WebKit: 実際には無音（タップで音を鳴らす操作のあと）', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, r); return r })
 await t('WebKit: 3Dが描けている', async () => { await wp.waitForTimeout(300); const v = await glVar(wp); expect(v > 200, v); return v })

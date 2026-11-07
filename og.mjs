@@ -38,7 +38,7 @@ await p.evaluate(() => {
   const d = document.createElement('div'); d.style.cssText = 'position:fixed;right:30px;top:0;bottom:0;width:470px;z-index:31;display:flex;flex-direction:column;justify-content:center;gap:18px;color:#f6f1e3'
   d.innerHTML = `<div style="font-family:'Shippori Mincho B1';font-weight:600;font-size:22px;letter-spacing:.3em;border-bottom:2px solid #f6f1e3;padding-bottom:6px;width:fit-content">試験中 / 私語厳禁</div>
   <div style="font-family:'Shippori Mincho B1';font-weight:800;font-size:76px;line-height:1.12">試験中に<br>お腹が<span style="color:#e0352a">鳴る</span></div>
-  <div style="font-family:'Shippori Mincho B1';font-weight:600;font-size:27px;line-height:1.6">鳴る瞬間に、咳払い・椅子・<br>ペンを落とす音を重ねろ。<br><span style="font-family:Yomogi;color:#ff6b5e;font-size:31px">大きさが合わないとばれる。</span></div>`
+  <div style="font-family:'Shippori Mincho B1';font-weight:600;font-size:27px;line-height:1.6">輪が重なった瞬間に、<br>咳払い・椅子・ペンの音を重ねろ。<br><span style="font-family:Yomogi;color:#ff6b5e;font-size:31px">大きさが合わないとばれる。</span></div>`
   document.body.appendChild(d)
   ET.dbg.render()
 })

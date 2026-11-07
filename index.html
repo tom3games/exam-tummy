@@ -9,12 +9,12 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="試験中にお腹が鳴る | TUMMY RUMBLE EXAM">
 <meta property="og:description" content="静かな試験会場でお腹が鳴る。咳払い・椅子・ペンを落とす音を重ねてごまかせ。大きさが合わないとばれる。">
-<meta property="og:image" content="https://tom3games.github.io/exam-tummy/og.png?v=1">
+<meta property="og:image" content="https://tom3games.github.io/exam-tummy/og.png?v=2">
 <meta property="og:url" content="https://tom3games.github.io/exam-tummy/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="試験中にお腹が鳴る | TUMMY RUMBLE EXAM">
 <meta name="twitter:description" content="静かな試験会場でお腹が鳴る。音を重ねてごまかせ。">
-<meta name="twitter:image" content="https://tom3games.github.io/exam-tummy/og.png?v=1">
+<meta name="twitter:image" content="https://tom3games.github.io/exam-tummy/og.png?v=2">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='4' width='44' height='56' fill='%23f6f1e3' stroke='%23333' stroke-width='3'/%3E%3Ccircle cx='32' cy='36' r='14' fill='none' stroke='%23d0281e' stroke-width='5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,12 +76,21 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 
 /* プレイ */
 #vPlay{padding:0;touch-action:none}
-.ans{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));width:92px;background:var(--paper);padding:5px 6px 6px;transform:rotate(-2deg);box-shadow:0 4px 10px rgba(0,0,0,.4);pointer-events:none}
-.ans .ah{font-size:9px;font-weight:800;border-bottom:1px solid var(--ink);margin-bottom:3px;display:flex;justify-content:space-between}
-.ans .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
-.ans .grid i{height:9px;border:1px solid #b9ae97;display:block}
+.ans{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));width:min(calc(100% - 132px),206px);background:var(--paper);padding:6px 8px 8px;transform:rotate(-2deg);box-shadow:0 4px 10px rgba(0,0,0,.4);border:0;display:flex;flex-direction:column;gap:4px;text-align:left;color:var(--ink);z-index:2}
+.ans .ah{font-size:11px;font-weight:800;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between}
+.ans .aq{display:flex;align-items:center;gap:8px}
+.ans .aq b{font-size:17px;font-weight:800;min-width:2.6em}
+.ans .anum{margin-left:auto;font-size:12px;font-weight:600}
+.ans .strokes{display:flex;gap:4px}
+.ans .strokes i{width:15px;height:20px;border:1.5px solid #8d8472;display:block;background:#fff}
+.ans .strokes i.on{background:repeating-linear-gradient(-55deg,#4a4743 0 2px,transparent 2px 5px)}
+.ans .grid{display:grid;grid-template-columns:repeat(16,1fr);gap:1.5px}
+.ans .grid i{height:5px;border:1px solid #c4b9a2;display:block}
 .ans .grid i.on{background:#4a4743;border-color:#4a4743}
-.ans .grid i.half{background:linear-gradient(90deg,#4a4743 50%,transparent 50%)}
+.ans.wait{filter:brightness(.88)}
+.ans.tap{animation:tapk .12s ease-out}
+@keyframes tapk{50%{transform:rotate(-2deg) translateY(2px) scale(.985)}}
+#ring{position:absolute;left:0;top:0;width:220px;height:220px;pointer-events:none;z-index:3;overflow:visible}
 .desk{position:absolute;left:0;right:0;bottom:0;padding:10px max(10px,env(safe-area-inset-right)) max(14px,calc(env(safe-area-inset-bottom) + 10px)) max(10px,env(safe-area-inset-left));display:flex;justify-content:center;gap:10px;pointer-events:none}
 .er{pointer-events:auto;position:relative;flex:1;max-width:122px;height:clamp(84px,13vh,108px);border:0;border-radius:6px 6px 8px 8px;background:#fbfaf6;box-shadow:0 6px 0 #c9c4b6,0 9px 14px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 8px;overflow:hidden;transition:transform .05s}
 .er::before{content:'';position:absolute;left:0;right:0;top:0;height:58%;background:var(--sl);border-bottom:2px solid rgba(0,0,0,.25)}
@@ -89,15 +98,15 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 .er .sz{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:26px;font-weight:800;color:#1e1c19;line-height:1}
 .er[data-k=pen] .sz{color:#fff}
 .er .nm{position:relative;font-size:14px;font-weight:800;white-space:nowrap}
-.er .left{position:relative;display:flex;gap:3px;margin-top:3px;height:8px}
-.er .left i{width:8px;height:8px;border-radius:50%;background:#1e1c19}
-.er .left i.off{background:transparent;border:1px solid #bbb}
+.er::after{content:'';position:absolute;inset:0;background:#1e1c19;opacity:calc(var(--cool,0) * .55);pointer-events:none}
+.er.fix .nm{color:#b3261e}
+.er.fix::before{background:repeating-linear-gradient(135deg,var(--sl) 0 10px,#fbfaf6 10px 14px)}
 .er:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 #c9c4b6,0 3px 8px rgba(0,0,0,.4)}
-.er:disabled{filter:grayscale(.9) brightness(.8);cursor:default}
+.er:disabled{cursor:default}
 .er .gone{position:absolute;inset:auto 0 30px 0;font-family:var(--hand);color:var(--red);font-size:16px;transform:rotate(-8deg);text-align:center}
 .er.ping{animation:ping .6s ease-in-out infinite alternate}
 @keyframes ping{to{box-shadow:0 6px 0 #c9c4b6,0 0 0 5px #fff,0 0 22px 8px rgba(255,255,255,.7)}}
-.hint{position:absolute;left:50%;bottom:calc(max(14px,env(safe-area-inset-bottom)) + clamp(84px,13vh,108px) + 34px);transform:translateX(-50%);white-space:nowrap;background:var(--paper);color:var(--ink);padding:6px 14px;font-size:17px;font-weight:800;box-shadow:0 4px 10px rgba(0,0,0,.4);pointer-events:none}
+.hint{position:absolute;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 128px);transform:translateX(-50%);white-space:nowrap;background:var(--paper);color:var(--ink);padding:6px 14px;font-size:17px;font-weight:800;box-shadow:0 4px 10px rgba(0,0,0,.4);pointer-events:none}
 .hint small{display:block;font-size:13px;font-weight:600;color:#5d574d;text-align:center}
 #finger{position:absolute;width:46px;height:46px;pointer-events:none;z-index:12;animation:tap .7s ease-in-out infinite alternate}
 @keyframes tap{to{transform:translate(4px,8px) scale(.94)}}
@@ -151,7 +160,7 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 }
 #boot-err{position:fixed;inset:auto 8px 8px 8px;z-index:99;background:#fff;color:#b00;font:12px/1.4 monospace;white-space:pre-wrap;padding:10px;border-radius:8px}
 </style>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=2"}}</script>
 </head>
 <body>
 <canvas id="gl"></canvas>
@@ -195,11 +204,12 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 </main>
 
 <main id="vPlay" class="view" hidden>
-  <div class="ans"><div class="ah"><span id="aSub"></span><span id="aNum">0/20</span></div><div class="grid" id="aGrid"></div></div>
+  <button type="button" class="ans" id="sheetBtn" aria-label="answer sheet"><span class="ah"><span id="aSub"></span><span id="aTime">10:00</span></span><span class="aq"><b id="aQ">問1</b><span class="strokes" id="aStrokes"></span><span class="anum" id="aNum">0/80</span></span><span class="grid" id="aGrid"></span></button>
+  <svg id="ring" viewBox="-110 -110 220 220" hidden><circle id="ringM" r="24" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="4"/><circle r="24" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="4 5"/><circle id="ringA" r="90" fill="none" stroke="#fff" stroke-width="6"/></svg>
   <div class="desk">
-    <button type="button" class="er" data-k="cough" id="b_cough"><span class="sz" data-t="sz1"></span><span class="nm" data-t="bCough"></span><span class="left"></span></button>
-    <button type="button" class="er" data-k="chair" id="b_chair"><span class="sz" data-t="sz2"></span><span class="nm" data-t="bChair"></span><span class="left"></span></button>
-    <button type="button" class="er" data-k="pen" id="b_pen"><span class="sz" data-t="sz3"></span><span class="nm" data-t="bPen"></span><span class="left"></span></button>
+    <button type="button" class="er" data-k="cough" id="b_cough"><span class="sz" data-t="sz1"></span><span class="nm" data-t="bCough"></span></button>
+    <button type="button" class="er" data-k="chair" id="b_chair"><span class="sz" data-t="sz2"></span><span class="nm" data-t="bChair"></span></button>
+    <button type="button" class="er" data-k="pen" id="b_pen"><span class="sz" data-t="sz3"></span><span class="nm" data-t="bPen"></span></button>
   </div>
   <div class="hint" id="hint" hidden></div>
   <svg id="finger" viewBox="0 0 48 48" hidden><path d="M18 44 L14 24 Q13 20 16.5 19.5 Q19.5 19.3 20 23 L21 28 L21 9 Q21 5 24.5 5 Q28 5 28 9 L28 22 Q32 20.5 34 23 Q38 22 39 26 L39 34 Q39 40 35 44 Z" fill="#fff" stroke="#1e1c19" stroke-width="2.5" stroke-linejoin="round"/></svg>
@@ -248,10 +258,10 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
   },8000);
 })();
 </script>
-<script src="tm.js?v=1" data-game="exam-tummy"></script>
-<script src="sfx.js?v=1"></script>
-<script src="data.js?v=1"></script>
-<script type="module" src="game.js?v=1"></script>
-<script src="support.js?v=1" data-ja="パン" data-en="bread"></script>
+<script src="tm.js?v=2" data-game="exam-tummy"></script>
+<script src="sfx.js?v=2"></script>
+<script src="data.js?v=2"></script>
+<script type="module" src="game.js?v=2"></script>
+<script src="support.js?v=2" data-ja="パン" data-en="bread"></script>
 </body>
 </html>

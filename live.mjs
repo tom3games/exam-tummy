@@ -1,6 +1,6 @@
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 // 公開URLの確認。node live.mjs（ログインしていないブラウザで見る）。SKIPGH=1 で GitHub ページの確認を省く
-// 試験中にお腹が鳴る: タイトル → はじめ → 最初の黄色で咳払い → 早送りで終わり → 採点された答案
+// 試験中にお腹が鳴る v2: タイトル → はじめ → 答案をタップ → 最初の黄色の輪が重なったら咳払い → 早送りで終わり → 採点された答案
 import { chromium, webkit } from 'playwright'
 import { execSync } from 'node:child_process'
 // 個人のアカウント名は公開リポジトリに書かない。実行時に gh から取る（2026-11-02 live.mjs に名前が文字で入ったまま5本公開していた）
@@ -17,13 +17,17 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   await p.goto(URL0 + '?t=' + Date.now(), { waitUntil: 'networkidle' })
   await p.waitForFunction(() => window.__etReady && ET.charsReady, null, { timeout: 15000 })
   await (name === 'webkit' ? p.tap('#bStart') : p.click('#bStart'))
-  await p.waitForFunction(() => ET.S.mode === 'play' && ET.S.speed === 0, null, { timeout: 20000 })   // チュートリアルの最初の黄色で止まる
+  await p.waitForFunction(() => ET.S.mode === 'play', null, { timeout: 20000 })
+  for (let i = 0; i < 6; i++) { await (name === 'webkit' ? p.tap('#sheetBtn') : p.click('#sheetBtn')); await p.waitForTimeout(150) }   // 答案をタップして解く
+  const strokes = await p.evaluate(() => ET.S.strokes + ET.S.ans * ET.D.STROKES)
+  await p.waitForFunction(() => ET.S.speed === 0, null, { timeout: 20000 })   // チュートリアル: 最初の黄色の輪が重なると止まる
   await (name === 'webkit' ? p.tap('#b_cough') : p.click('#b_cough'))
+  await p.waitForFunction(() => ET.S.rumbles[0].res, null, { timeout: 4000 }).catch(() => {})
   const first = await p.evaluate(() => ET.S.rumbles[0].res)
   await p.evaluate(() => { ET.dbg.pause(true); ET.dbg.finish(); ET.dbg.pause(false) })
   await p.waitForFunction(() => document.getElementById('rBtns').classList.contains('on'), null, { timeout: 15000 })
   const res = await p.evaluate(() => ({ rank: document.getElementById('rName').textContent, mute: window.__muteOk() }))
-  out.push(`${name}: tutorial=${first} result=${res.rank} muteOk=${res.mute}`)
+  out.push(`${name}: taps=${strokes} tutorial=${first} result=${res.rank} muteOk=${res.mute}`)
   await p.screenshot({ path: `shots/live-${name}.png` })
   const og = await p.evaluate(async () => { const r = await fetch(document.querySelector('meta[property="og:image"]').content); return r.status + ' ' + r.headers.get('content-type') })
   out.push(`${name}: og=${og} errors=${errs.length ? errs.join(' | ') : 'none'}`)
