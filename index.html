@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>試験中にお腹が鳴る | TUMMY RUMBLE EXAM</title>
+<meta name="description" content="静かな試験会場で、お腹が鳴る。鳴る瞬間に咳払い・椅子・ペンを落とす音を重ねてごまかせ。大きさが合わないとばれる。ブラウザで遊べる3Dバカゲー。">
+<meta name="theme-color" content="#2b3a33">
+<meta property="og:type" content="website">
+<meta property="og:title" content="試験中にお腹が鳴る | TUMMY RUMBLE EXAM">
+<meta property="og:description" content="静かな試験会場でお腹が鳴る。咳払い・椅子・ペンを落とす音を重ねてごまかせ。大きさが合わないとばれる。">
+<meta property="og:image" content="https://tom3games.github.io/exam-tummy/og.png?v=1">
+<meta property="og:url" content="https://tom3games.github.io/exam-tummy/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="試験中にお腹が鳴る | TUMMY RUMBLE EXAM">
+<meta name="twitter:description" content="静かな試験会場でお腹が鳴る。音を重ねてごまかせ。">
+<meta name="twitter:image" content="https://tom3games.github.io/exam-tummy/og.png?v=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='4' width='44' height='56' fill='%23f6f1e3' stroke='%23333' stroke-width='3'/%3E%3Ccircle cx='32' cy='36' r='14' fill='none' stroke='%23d0281e' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Yomogi&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#24211d;--paper:#f6f1e3;--paper2:#ece4cf;--rule:#9fb7c9;--red:#d0281e;--board:#2b3a33;
+  --c1:#f2c230;--c2:#f08a24;--c3:#e0352a;--mincho:'Shippori Mincho B1','Hiragino Mincho ProN','Yu Mincho',serif;--hand:'Yomogi','Hiragino Maru Gothic ProN',sans-serif;
+}
+html{background:var(--board);touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{height:100%;color:var(--ink);font-family:var(--mincho);-webkit-tap-highlight-color:transparent;word-break:auto-phrase;line-break:strict;overflow-wrap:anywhere}
+body{overflow:hidden;background:var(--board);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button,canvas{touch-action:manipulation}
+button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:none;user-select:none;cursor:pointer}
+:focus-visible{outline:3px solid var(--c1);outline-offset:3px}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+#fx{position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+.view{position:fixed;inset:0;z-index:10;height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:max(56px,calc(env(safe-area-inset-top) + 50px)) 16px max(16px,calc(env(safe-area-inset-bottom) + 10px))}
+
+/* ロード画面: 答案に鉛筆で線を引く */
+#boot{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;--p:0;transition:opacity .35s}
+#boot.out{opacity:0}
+#boot .sheet{width:min(260px,70vw);position:relative;height:110px;background:repeating-linear-gradient(180deg,transparent 0 27px,var(--rule) 27px 28px)}
+#boot .line{position:absolute;left:0;top:44px;height:3px;width:calc(var(--p) * 100%);background:#4a4743;border-radius:2px}
+#boot .pencil{position:absolute;top:8px;left:calc(var(--p) * 100% - 6px);width:20px;height:80px;transform:rotate(28deg);transform-origin:50% 100%;animation:wig .5s ease-in-out infinite alternate}
+@keyframes wig{to{transform:rotate(22deg) translateY(-3px)}}
+#boot p{font-size:16px;font-weight:600;letter-spacing:.1em}
+
+#corner{position:fixed;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));z-index:40;display:flex;gap:8px}
+#corner button{height:40px;min-width:44px;padding:0 10px;border:1px solid rgba(246,241,227,.5);border-radius:3px;background:rgba(30,40,35,.72);color:var(--paper);font-family:var(--mincho);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
+#corner svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* タイトル: 問題冊子の表紙 */
+#vTitle{justify-content:flex-end;gap:12px}
+.cover{width:min(400px,100%);background:var(--paper);border:1px solid #c9bfa7;padding:16px 18px 14px;box-shadow:0 18px 40px rgba(0,0,0,.45);transform:rotate(-1.2deg);position:relative;min-height:0}
+.cover .hd{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;border-bottom:2px solid var(--ink);padding-bottom:4px}
+.cover h1{font-size:min(10.5vw,6vh,44px);font-weight:800;line-height:1.15;margin:12px 0 2px;letter-spacing:.02em}
+.cover h1 span{display:block;font-size:.34em;letter-spacing:.24em;font-weight:600;margin-top:6px;color:#5d574d}
+.cover ol{margin:10px 0 0 1.3em;font-size:13px;line-height:1.6;font-weight:600}
+.cover .redmark{position:absolute;right:16px;bottom:10px;font-family:var(--hand);color:var(--red);font-size:30px;transform:rotate(-10deg);opacity:.9}
+.tBtns{width:min(400px,100%);display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.go{min-height:58px;border:0;border-radius:3px;background:#1e1c19;color:var(--paper);font-size:24px;font-weight:800;letter-spacing:.3em;box-shadow:0 5px 0 #000}
+.go:active{transform:translateY(4px);box-shadow:0 1px 0 #000}
+.sub{min-height:44px;border:1px solid rgba(246,241,227,.6);border-radius:3px;background:rgba(30,40,35,.6);color:var(--paper);font-size:16px;font-weight:600}
+
+/* 遊び方 */
+#vHow{justify-content:center;gap:12px}
+.inst{width:min(440px,100%);background:var(--paper);padding:14px 16px 10px;min-height:0;overflow:hidden;border-top:6px solid var(--ink)}
+.inst h2{font-size:20px;font-weight:800;margin-bottom:8px;letter-spacing:.1em}
+.inst ol{margin-left:1.2em;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.5;font-weight:600}
+.inst b{color:var(--red)}
+.inst i{font-style:normal;padding:0 4px;color:#1e1c19;font-weight:800}
+i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);color:#fff!important}
+.credit{margin-top:8px;font-size:10px;line-height:1.4;color:#7a6f5c;text-align:center}.credit a{color:inherit}
+.credit a.pv{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;font-size:12px}
+#vHow .sub{width:min(440px,100%)}
+
+/* プレイ */
+#vPlay{padding:0;touch-action:none}
+.ans{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));width:92px;background:var(--paper);padding:5px 6px 6px;transform:rotate(-2deg);box-shadow:0 4px 10px rgba(0,0,0,.4);pointer-events:none}
+.ans .ah{font-size:9px;font-weight:800;border-bottom:1px solid var(--ink);margin-bottom:3px;display:flex;justify-content:space-between}
+.ans .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.ans .grid i{height:9px;border:1px solid #b9ae97;display:block}
+.ans .grid i.on{background:#4a4743;border-color:#4a4743}
+.ans .grid i.half{background:linear-gradient(90deg,#4a4743 50%,transparent 50%)}
+.desk{position:absolute;left:0;right:0;bottom:0;padding:10px max(10px,env(safe-area-inset-right)) max(14px,calc(env(safe-area-inset-bottom) + 10px)) max(10px,env(safe-area-inset-left));display:flex;justify-content:center;gap:10px;pointer-events:none}
+.er{pointer-events:auto;position:relative;flex:1;max-width:122px;height:clamp(84px,13vh,108px);border:0;border-radius:6px 6px 8px 8px;background:#fbfaf6;box-shadow:0 6px 0 #c9c4b6,0 9px 14px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 8px;overflow:hidden;transition:transform .05s}
+.er::before{content:'';position:absolute;left:0;right:0;top:0;height:58%;background:var(--sl);border-bottom:2px solid rgba(0,0,0,.25)}
+.er[data-k=cough]{--sl:var(--c1)}.er[data-k=chair]{--sl:var(--c2)}.er[data-k=pen]{--sl:var(--c3)}
+.er .sz{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:26px;font-weight:800;color:#1e1c19;line-height:1}
+.er[data-k=pen] .sz{color:#fff}
+.er .nm{position:relative;font-size:14px;font-weight:800;white-space:nowrap}
+.er .left{position:relative;display:flex;gap:3px;margin-top:3px;height:8px}
+.er .left i{width:8px;height:8px;border-radius:50%;background:#1e1c19}
+.er .left i.off{background:transparent;border:1px solid #bbb}
+.er:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 #c9c4b6,0 3px 8px rgba(0,0,0,.4)}
+.er:disabled{filter:grayscale(.9) brightness(.8);cursor:default}
+.er .gone{position:absolute;inset:auto 0 30px 0;font-family:var(--hand);color:var(--red);font-size:16px;transform:rotate(-8deg);text-align:center}
+.er.ping{animation:ping .6s ease-in-out infinite alternate}
+@keyframes ping{to{box-shadow:0 6px 0 #c9c4b6,0 0 0 5px #fff,0 0 22px 8px rgba(255,255,255,.7)}}
+.hint{position:absolute;left:50%;bottom:calc(max(14px,env(safe-area-inset-bottom)) + clamp(84px,13vh,108px) + 34px);transform:translateX(-50%);white-space:nowrap;background:var(--paper);color:var(--ink);padding:6px 14px;font-size:17px;font-weight:800;box-shadow:0 4px 10px rgba(0,0,0,.4);pointer-events:none}
+.hint small{display:block;font-size:13px;font-weight:600;color:#5d574d;text-align:center}
+#finger{position:absolute;width:46px;height:46px;pointer-events:none;z-index:12;animation:tap .7s ease-in-out infinite alternate}
+@keyframes tap{to{transform:translate(4px,8px) scale(.94)}}
+#bigMsg{position:absolute;left:0;right:0;top:34%;text-align:center;font-size:min(16vw,80px);font-weight:800;color:var(--paper);letter-spacing:.3em;text-shadow:0 4px 0 #000,0 0 30px rgba(0,0,0,.6);pointer-events:none}
+
+/* 3D の上の文字 */
+.ono{position:absolute;left:0;top:0;font-family:var(--hand);white-space:nowrap;color:#fff;-webkit-text-stroke:4px #1e1c19;paint-order:stroke fill;transform-origin:50% 50%;will-change:transform,opacity;font-size:30px;line-height:1}
+.ono.g1{color:var(--c1)}.ono.g2{color:var(--c2)}.ono.g3{color:var(--c3);font-size:42px}
+.sb{position:absolute;left:0;top:0;background:#fff;color:var(--ink);border:2px solid var(--ink);border-radius:12px;padding:4px 9px;font-weight:800;font-size:14px;white-space:nowrap;transform-origin:50% 100%}
+.sb::after{content:"";position:absolute;left:50%;bottom:-9px;margin-left:-6px;border:6px solid transparent;border-top-color:var(--ink);border-bottom:0}
+.verdict{position:absolute;left:0;top:0;font-family:var(--hand);font-size:34px;color:var(--red);white-space:nowrap;-webkit-text-stroke:5px #fff;paint-order:stroke fill;transform-origin:50% 50%}
+.verdict.ok{color:#1d6b3a}
+
+/* 結果: 採点された答案 */
+#vResult{justify-content:flex-start;gap:10px;padding-top:max(54px,calc(env(safe-area-inset-top) + 48px))}
+.sheet{position:relative;width:min(420px,100%);background:var(--paper);padding:12px 16px 12px;box-shadow:0 16px 36px rgba(0,0,0,.5);min-height:0;overflow:hidden;transform:rotate(.6deg)}
+.sheet .hd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:4px;font-size:12px;font-weight:600}
+.sheet .hd b{font-size:17px;font-weight:800;letter-spacing:.06em}
+.rows{margin-top:8px;display:flex;flex-direction:column}
+.r{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--rule);min-height:clamp(34px,5.4vh,46px);padding:2px 4px}
+.r .k{flex:none;width:6.5em;font-size:14px;font-weight:600}
+.r .v{font-family:var(--hand);color:var(--red);font-size:clamp(26px,4.4vh,34px);line-height:1;opacity:0;transform:scale(1.6);transition:opacity .15s,transform .2s}
+.r .v small{font-size:.5em;margin-left:2px}
+.r.on .v{opacity:1;transform:none}
+.r .tick{font-family:var(--hand);color:var(--red);margin-left:auto;font-size:18px;opacity:0}
+.r.on .tick{opacity:1}
+.rank{margin-top:10px;display:flex;align-items:center;gap:12px;min-height:84px}
+.hanko{flex:none;width:78px;height:78px;border:4px solid var(--red);border-radius:50%;color:var(--red);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;transform:rotate(-14deg) scale(0);opacity:0}
+.hanko.on{animation:slam .3s ease-out forwards}
+@keyframes slam{0%{transform:rotate(-14deg) scale(2.4);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:.92}}
+.rk{min-width:0;opacity:0;transition:opacity .3s}
+.rk.on{opacity:1}
+.rk b{display:block;font-family:var(--hand);color:var(--red);font-size:clamp(22px,6.2vw,28px);line-height:1.2}
+.rk span{display:block;font-size:13px;font-weight:600;margin-top:4px}
+.rBtns{width:min(420px,100%);display:flex;flex-direction:column;gap:8px;opacity:0;transition:opacity .3s;pointer-events:none}
+.rBtns.on{opacity:1;pointer-events:auto}
+.rRow{display:flex;gap:8px}
+.rRow>button{flex:1;min-width:0;min-height:46px;border-radius:3px;font-size:15px;font-weight:800;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 6px}
+#bAgain{min-height:54px!important;background:#1e1c19;color:var(--paper);border:0;box-shadow:0 4px 0 #000;font-size:18px;letter-spacing:.1em}
+.tlink{align-self:center;min-height:40px;padding:0 16px;border:0;background:none;color:var(--paper);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:4px}
+.ghost{background:rgba(30,40,35,.7);color:var(--paper);border:1px solid rgba(246,241,227,.55)}
+#bX{background:#000;color:#fff;border:0}
+#bX svg{width:16px;height:16px;fill:currentColor}
+
+@media (max-height:700px){
+  .cover{padding:12px 14px 10px}.cover ol{font-size:12px;line-height:1.5}.cover h1{margin-top:8px}
+  .go{min-height:52px;font-size:21px}.sub{min-height:42px}
+  .inst{padding:10px 12px 6px}.inst ol{font-size:12.5px;gap:4px}.inst h2{font-size:17px;margin-bottom:4px}
+  .r{min-height:30px}.rank{min-height:72px;margin-top:6px}.hanko{width:66px;height:66px;font-size:34px}
+  .rRow>button{min-height:42px}
+}
+#boot-err{position:fixed;inset:auto 8px 8px 8px;z-index:99;background:#fff;color:#b00;font:12px/1.4 monospace;white-space:pre-wrap;padding:10px;border-radius:8px}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="fx"></div>
+
+<div id="boot" aria-hidden="true">
+  <div class="sheet"><div class="line"></div>
+    <svg class="pencil" viewBox="0 0 20 80"><rect x="4" y="0" width="12" height="60" fill="#e8b830"/><rect x="4" y="0" width="12" height="8" fill="#e98fa0"/><rect x="4" y="8" width="12" height="4" fill="#b9b9b9"/><path d="M4 60 L10 76 L16 60z" fill="#e9cfa5"/><path d="M8.6 72 L10 76 L11.4 72z" fill="#333"/></svg>
+  </div>
+  <p data-t="loading">鉛筆を削っています</p>
+</div>
+
+<div id="corner">
+  <button id="bLang" type="button" aria-label="Language"><span id="langTxt">EN</span></button>
+  <button id="bMute" type="button" aria-label="Sound">
+    <svg id="icOn" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+    <svg id="icOff" viewBox="0 0 24 24" hidden><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+  </button>
+</div>
+
+<main id="vTitle" class="view">
+  <div class="cover">
+    <div class="hd"><span data-t="coverHd"></span><span data-t="coverNo"></span></div>
+    <h1><b data-t="title" style="font-weight:800"></b><span data-t="sub"></span></h1>
+    <ol><li data-t="note1"></li><li data-t="note2"></li></ol>
+    <div class="redmark">ぐぅ</div>
+  </div>
+  <div class="tBtns">
+    <button class="go" id="bStart" type="button" data-t="start"></button>
+    <button class="sub" id="bHow" type="button" data-t="how"></button>
+  </div>
+</main>
+
+<main id="vHow" class="view" hidden>
+  <div class="inst">
+    <h2 data-t="howT"></h2>
+    <ol><li data-h="h1"></li><li data-h="h2"></li><li data-h="h3"></li><li data-h="h4"></li><li data-h="h5"></li></ol>
+    <p class="credit">Sounds: Thirunavukkarasye-Raveendran (CC BY 3.0), Smith J et al. (CC BY 2.0), Kenney, LFA ほか CC0 / Public domain。Characters: Kenney (CC0)。一覧は <a href="CREDITS.md" target="_blank" rel="noopener">CREDITS</a><br><a class="pv" href="privacy.html" target="_blank" rel="noopener">プライバシー / Privacy</a></p>
+  </div>
+  <button class="sub" id="bHowBack" type="button" data-t="back"></button>
+</main>
+
+<main id="vPlay" class="view" hidden>
+  <div class="ans"><div class="ah"><span id="aSub"></span><span id="aNum">0/20</span></div><div class="grid" id="aGrid"></div></div>
+  <div class="desk">
+    <button type="button" class="er" data-k="cough" id="b_cough"><span class="sz" data-t="sz1"></span><span class="nm" data-t="bCough"></span><span class="left"></span></button>
+    <button type="button" class="er" data-k="chair" id="b_chair"><span class="sz" data-t="sz2"></span><span class="nm" data-t="bChair"></span><span class="left"></span></button>
+    <button type="button" class="er" data-k="pen" id="b_pen"><span class="sz" data-t="sz3"></span><span class="nm" data-t="bPen"></span><span class="left"></span></button>
+  </div>
+  <div class="hint" id="hint" hidden></div>
+  <svg id="finger" viewBox="0 0 48 48" hidden><path d="M18 44 L14 24 Q13 20 16.5 19.5 Q19.5 19.3 20 23 L21 28 L21 9 Q21 5 24.5 5 Q28 5 28 9 L28 22 Q32 20.5 34 23 Q38 22 39 26 L39 34 Q39 40 35 44 Z" fill="#fff" stroke="#1e1c19" stroke-width="2.5" stroke-linejoin="round"/></svg>
+  <div id="bigMsg" hidden></div>
+</main>
+
+<main id="vResult" class="view" hidden>
+  <div class="sheet" id="sheet">
+    <div class="hd"><b data-t="resHd"></b><span id="rSub"></span></div>
+    <div class="rows">
+      <div class="r" id="r1"><span class="k" data-t="rRumble"></span><span class="v" id="rv1"></span></div>
+      <div class="r" id="r2"><span class="k" data-t="rSafe"></span><span class="v" id="rv2"></span></div>
+      <div class="r" id="r3"><span class="k" data-t="rBust"></span><span class="v" id="rv3"></span></div>
+      <div class="r" id="r4"><span class="k" data-t="rAns"></span><span class="v" id="rv4"></span></div>
+    </div>
+    <div class="rank"><div class="hanko" id="rHanko"></div><div class="rk" id="rRank"><b id="rName"></b><span id="rCmt"></span></div></div>
+  </div>
+  <div class="rBtns" id="rBtns">
+    <div class="rRow"><button id="bAgain" type="button" data-t="again"></button></div>
+    <div class="rRow"><button class="ghost" id="bSave" type="button" data-t="save"></button><button id="bX" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg><span data-t="xPost"></span></button></div>
+    <button class="tlink" id="bTitle" type="button" data-t="toTitle"></button>
+  </div>
+</main>
+
+<script>
+(function(){
+  var opt={passive:false};
+  ['gesturestart','gesturechange','gestureend'].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault()},opt)});
+  document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},opt);
+  var last=0;document.addEventListener('touchend',function(e){var n=Date.now();if(n-last<300&&!(e.target.closest&&e.target.closest('button,a')))e.preventDefault();last=n},opt);
+  document.addEventListener('dblclick',function(e){e.preventDefault()},opt);
+  window.addEventListener('wheel',function(e){if(e.ctrlKey)e.preventDefault()},opt);
+  window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+','-','=','0',';'].indexOf(e.key)>=0)e.preventDefault()});
+  document.addEventListener('contextmenu',function(e){e.preventDefault()});
+})();
+// 起動失敗の保険。JS が動いたか（__jsUp）で判定し、読み込み中を失敗と出さない
+(function(){
+  var errs=[];
+  window.addEventListener('error',function(e){errs.push((e.message||'error')+' @'+(e.filename||'')+':'+(e.lineno||''))});
+  window.addEventListener('unhandledrejection',function(e){errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});
+  setTimeout(function(){
+    if(window.__jsUp) return;
+    var d=document.createElement('div');d.id='boot-err';
+    d.textContent='起動できませんでした / failed to start\n'+(errs.join('\n')||'(no error captured)')+'\n'+navigator.userAgent;
+    document.body.appendChild(d);
+  },8000);
+})();
+</script>
+<script src="tm.js?v=1" data-game="exam-tummy"></script>
+<script src="sfx.js?v=1"></script>
+<script src="data.js?v=1"></script>
+<script type="module" src="game.js?v=1"></script>
+<script src="support.js?v=1" data-ja="パン" data-en="bread"></script>
+</body>
+</html>

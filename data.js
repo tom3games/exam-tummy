@@ -1,0 +1,83 @@
+// 文言（日英）と遊びの数字。仕様の正本は ~/Desktop/claudecode/ideas/exam-tummy.md
+window.ET_DATA = {
+  URL: 'https://tom3games.github.io/exam-tummy/',
+  DUR: 150,            // 試験の長さ（秒）。時計は 10:00 から 11:00
+  QN: 20,              // 問題数
+  Q_SEC: 6.4,          // 1問にかかる秒数（鉛筆があって手が空いている時だけ進む）
+  WIN_PRE: 0.32,       // 鳴る瞬間より前に押してよい幅
+  WIN_POST: 0.42,      // 鳴る瞬間より後に押してよい幅
+  USES: { cough: 3, chair: 3, pen: 3 },
+  SIZE: { cough: 1, chair: 2, pen: 3 },
+  PAUSE: { cough: 0.8, chair: 1.2, pen: 1.6, bust: 2.0 },  // 書く手が止まる秒数
+  RUMBLE_LEN: [0, 0.7, 1.1, 1.7],
+  COVER_LEN: { cough: 0.55, chair: 0.9, pen: 1.2 },
+  RANKS: [   // 判定値の下限と称号
+    [120, 'S'], [90, 'A'], [55, 'B'], [20, 'C'], [-10, 'D'], [-1e9, 'E'],
+  ],
+  T: {
+    ja: {
+      title: '試験中にお腹が鳴る', sub: 'TUMMY RUMBLE EXAM',
+      coverHd: '問題冊子', coverNo: '受験番号 0721',
+      note1: 'お腹が鳴っても試験は止まらない', note2: '鳴る前に体が教えてくれる',
+      start: 'はじめ', how: '遊び方', back: 'もどる', loading: '鉛筆を削っています',
+      howT: '注意事項',
+      h1: 'お腹が<b>光る</b>と鳴る合図。ぴく、ぴく、ぴく、の次に鳴る。光がしぼんだら鳴らない',
+      h2: '光の色が大きさ。<i class="c1">黄</i>は咳払い、<i class="c2">橙</i>は椅子、<i class="c3">赤</i>はペンを落とす',
+      h3: '大きさが合わないとばれる。大きすぎる音も、全員こっちを見る',
+      h4: '工事・くしゃみ・チャイムが鳴っている間は、何もしなくていい',
+      h5: '咳はやりすぎると<b>マスク</b>。椅子は3回で<b>壊れる</b>。ペンは3本、落としたら拾えない',
+      bCough: '咳払い', bChair: '椅子ギィ', bPen: 'ペン落とし',
+      sz1: '小', sz2: '中', sz3: '大',
+      tut1: '黄色く光ったら', tut2: '同じ色を押す', tut3: '工事の音に隠れる', tut4: '何もしない',
+      go: 'はじめ', stop: 'やめ',
+      vSafe: 'ごまかした', vExt: 'かき消えた', vBust: '鳴った！', vSmall: '小さすぎ！', vBig: 'やりすぎ！', vMiss: '空振り',
+      grRumble: ['きゅるる', 'ぐぅ〜', 'ぐおおぉぉ'],
+      oCough: 'ゴホン', oChair: 'ギィッ', oPen: 'カシャーン', oDrill: 'ガガガガ', oSneeze: 'ハックション', oChime: 'キーンコーン', oRoll: 'コロコロ', oTeacher: 'ぐぅ…',
+      sCold: '…風邪？', sMask: 'これ着けて', sChairBreak: '…', sGiggle: 'ふふっ', sAll: 'ざわっ', sProctorCough: 'ゴホン', sTicket: '本人です', sCheck: '…本人？', sRoll: '3かな',
+      sEndGrand: 'もう一回受けるわ', sTeacherBig: '…先生？',
+      resHd: '採点結果', rRumble: '鳴った', rSafe: 'ごまかした', rBust: 'ばれた', rAns: '解答', rUnit: '回', rQ: '問',
+      again: 'もう一回', toTitle: 'タイトル', save: '画像を保存', xPost: 'Xでポスト',
+      rankName: { S: '沈黙の胃袋', A: '腹の音の達人', B: '隣の人だけ知ってる', C: '教室公認の腹ペコ', D: '腹の音で受かる人', E: '教室のBGM係' },
+      rankCmt: {
+        S: '静かな答案でした', A: 'ほぼ聞こえませんでした', B: '前の席までは届いてた', C: '監督も気づいてました', D: '全員お腹すいてきた', E: '試験より目立ってた',
+      },
+      blank: '白紙の勇者', blankCmt: '鉛筆は前日に買おう',
+      teacherRare: '監督の方が鳴ってた',
+      xText: (r) => `試験中にお腹が${r.rumble}回鳴って、${r.safe}回ごまかし${r.bust}回ばれた「${r.rank}」 #試験中にお腹が鳴る`,
+      subjects: ['数学', '英語', '国語', '世界史', '化学'],
+      board: '試験中', boardSub: '私語厳禁',
+    },
+    en: {
+      title: 'Tummy Rumble Exam', sub: 'DON\'T LET IT GROWL',
+      coverHd: 'EXAM BOOKLET', coverNo: 'Seat No. 0721',
+      note1: 'The exam goes on even if your tummy growls', note2: 'Your body warns you first',
+      start: 'Begin', how: 'How to play', back: 'Back', loading: 'Sharpening pencils',
+      howT: 'Instructions',
+      h1: 'A <b>glow</b> on your tummy means a growl is coming. Twitch, twitch, twitch, then growl. If the glow fades, it won\'t',
+      h2: 'The color is the size. <i class="c1">Yellow</i> cough, <i class="c2">orange</i> chair, <i class="c3">red</i> drop your pen',
+      h3: 'Wrong size and you get caught. Too loud makes everyone look too',
+      h4: 'During drilling, sneezes or the chime, just do nothing',
+      h5: 'Cough too much and you get a <b>mask</b>. The chair <b>breaks</b> after 3. Only 3 pens, no picking up',
+      bCough: 'Cough', bChair: 'Creak', bPen: 'Drop pen',
+      sz1: 'S', sz2: 'M', sz3: 'L',
+      tut1: 'Yellow glow', tut2: 'Tap the same color', tut3: 'Hide in the drilling', tut4: 'Do nothing',
+      go: 'Begin', stop: 'Pens down',
+      vSafe: 'Covered', vExt: 'Drowned out', vBust: 'Heard it!', vSmall: 'Too quiet!', vBig: 'Too loud!', vMiss: 'For nothing',
+      grRumble: ['gurgle', 'grrowl', 'GRROOOWL'],
+      oCough: 'Ahem', oChair: 'Creak', oPen: 'Clatter', oDrill: 'Brrrrt', oSneeze: 'Achoo', oChime: 'Ding dong', oRoll: 'Roll', oTeacher: 'grr…',
+      sCold: 'A cold?', sMask: 'Wear this', sChairBreak: '…', sGiggle: 'heh', sAll: 'Gasp', sProctorCough: 'Ahem', sTicket: 'That\'s me', sCheck: '…You?', sRoll: 'Maybe 3',
+      sEndGrand: 'I\'ll retake it', sTeacherBig: 'Sir…?',
+      resHd: 'Graded', rRumble: 'Growls', rSafe: 'Covered', rBust: 'Caught', rAns: 'Answered', rUnit: '', rQ: '',
+      again: 'Again', toTitle: 'Title', save: 'Save image', xPost: 'Post on X',
+      rankName: { S: 'Silent Stomach', A: 'Growl Master', B: 'Only My Neighbor Knows', C: 'Officially Hungry', D: 'Passed by Growling', E: 'Class Soundtrack' },
+      rankCmt: {
+        S: 'A very quiet paper', A: 'Barely heard a thing', B: 'The front row heard', C: 'The proctor noticed', D: 'Now everyone is hungry', E: 'Louder than the exam',
+      },
+      blank: 'Brave Blank Sheet', blankCmt: 'Buy pencils the day before',
+      teacherRare: 'The proctor growled louder',
+      xText: (r) => `My tummy growled ${r.rumble} times in the exam. Covered ${r.safe}, caught ${r.bust}. "${r.rank}" #TummyRumbleExam`,
+      subjects: ['Math', 'English', 'Literature', 'History', 'Chemistry'],
+      board: 'EXAM', boardSub: 'Silence',
+    },
+  },
+}
