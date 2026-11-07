@@ -1,3 +1,4 @@
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 // 公開URLの確認。node live.mjs（ログインしていないブラウザで見る）。SKIPGH=1 で GitHub ページの確認を省く
 // 試験中にお腹が鳴る v2: タイトル → はじめ → 答案をタップ → 最初の黄色の輪が重なったら咳払い → 早送りで終わり → 採点された答案

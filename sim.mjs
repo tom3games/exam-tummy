@@ -1,5 +1,6 @@
 // 遊び方ごとの分布（v2: 輪のタイミング・答案をタップ・手持ちは戻る）。種を変えて12回ずつ。node sim.mjs
 // 読む bot は見えている物だけ使う: 光と輪の色（大きさ）、縮む輪（鳴る時刻）、輪が消える（ひっかけ）、周りの音の予告。押すのは輪が重なってから反応0.25〜0.4秒後
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'

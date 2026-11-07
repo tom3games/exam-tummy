@@ -1,4 +1,5 @@
 // 場面を台本どおりに進めて撮る（その場面の少し前から実時間で動かす）。node shot.mjs [幅x高さ] [webkit]
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { chromium, webkit } from 'playwright'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'

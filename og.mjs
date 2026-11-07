@@ -1,5 +1,6 @@
 // SNS用サムネ og.png（1200x630）。node og.mjs
 // 試験中にお腹が大きく鳴って赤く光り、教室じゅうが振り向く瞬間。右にタイトルと一言
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'
