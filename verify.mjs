@@ -66,7 +66,7 @@ await t('ブラウザの拡大が起きない（viewport・ピンチ・Ctrl+ホ�
 })
 await t('OGP 一式がある（画像は絶対URL）', async () => {
   const r = await p.evaluate(() => ({ list: ['og:title', 'og:description', 'og:image', 'og:url', 'og:type'].map(k => !!document.querySelector(`meta[property="${k}"]`)).concat(!!document.querySelector('meta[name="twitter:card"]')), img: document.querySelector('meta[property="og:image"]').content }))
-  expect(r.list.every(Boolean) && /^https:\/\/tom3games\.github\.io\/exam-tummy\/og\.png/.test(r.img), r)
+  expect(r.list.every(Boolean) && /^https:\/\/tom3games\.com\/play\/exam-tummy\/og\.png/.test(r.img), r)
 })
 await t('og.png が 1200x630', async () => { const r = await p.evaluate(() => new Promise(res => { const i = new Image(); i.onload = () => res([i.width, i.height]); i.onerror = () => res(null); i.src = 'og.png' })); expect(r && r[0] === 1200 && r[1] === 630, r) })
 await t('日本語の端末では日本語で始まる', async () => { const r = await p.evaluate(() => ({ lang: document.documentElement.lang, start: document.getElementById('bStart').textContent })); expect(r.lang === 'ja' && r.start === 'はじめ', r) })
