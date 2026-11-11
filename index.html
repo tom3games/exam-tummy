@@ -36,7 +36,7 @@ button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:n
 :focus-visible{outline:3px solid var(--c1);outline-offset:3px}
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
 #fx{position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden}
-.view{position:fixed;inset:0;z-index:10;height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:max(56px,calc(env(safe-area-inset-top) + 50px)) 16px max(16px,calc(env(safe-area-inset-bottom) + 10px))}
+.view{position:fixed;inset:0;z-index:10;height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:max(56px,calc(env(safe-area-inset-top) + 50px)) 16px max(16px,calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 10px))}
 
 /* ロード画面: 答案に鉛筆で線を引く */
 #boot{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;--p:0;transition:opacity .35s}
@@ -93,7 +93,7 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 .ans.tap{animation:tapk .12s ease-out}
 @keyframes tapk{50%{transform:rotate(-2deg) translateY(2px) scale(.985)}}
 #ring{position:absolute;left:0;top:0;width:220px;height:220px;pointer-events:none;z-index:3;overflow:visible}
-.desk{position:absolute;left:0;right:0;bottom:0;padding:10px max(10px,env(safe-area-inset-right)) max(14px,calc(env(safe-area-inset-bottom) + 10px)) max(10px,env(safe-area-inset-left));display:flex;justify-content:center;gap:10px;pointer-events:none}
+.desk{position:absolute;left:0;right:0;bottom:0;padding:10px max(10px,env(safe-area-inset-right)) max(14px,calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 10px)) max(10px,env(safe-area-inset-left));display:flex;justify-content:center;gap:10px;pointer-events:none}
 .er{pointer-events:auto;position:relative;flex:1;max-width:122px;height:clamp(84px,13vh,108px);border:0;border-radius:6px 6px 8px 8px;background:#fbfaf6;box-shadow:0 6px 0 #c9c4b6,0 9px 14px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 8px;overflow:hidden;transition:transform .05s}
 .er::before{content:'';position:absolute;left:0;right:0;top:0;height:58%;background:var(--sl);border-bottom:2px solid rgba(0,0,0,.25)}
 .er[data-k=cough]{--sl:var(--c1)}.er[data-k=chair]{--sl:var(--c2)}.er[data-k=pen]{--sl:var(--c3)}
@@ -264,6 +264,6 @@ i.c1{background:var(--c1)}i.c2{background:var(--c2)}i.c3{background:var(--c3);co
 <script src="sfx.js?v=3"></script>
 <script src="data.js?v=2"></script>
 <script type="module" src="game.js?v=2"></script>
-<script src="support.js?v=5" data-ja="パン" data-en="bread"></script>
+<script src="support.js?v=6" data-ja="パン" data-en="bread"></script>
 </body>
 </html>
