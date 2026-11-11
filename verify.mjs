@@ -315,11 +315,52 @@ await t('WebKit: タップで始めて、ボタンをタップで押せる', asy
   expect(r.res === 'safe' && r.strokes === 1, r); return r
 })
 await t('WebKit: 実際には無音（タップで音を鳴らす操作のあと）', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, r); return r })
+await awayTest(wp)
 await t('WebKit: 3Dが描けている', async () => { await wp.waitForTimeout(300); const v = await glVar(wp); expect(v > 200, v); return v })
 await t('WebKit: 結果まで通る', async () => { await wp.evaluate(() => { ET.dbg.pause(true); ET.dbg.finish(); ET.dbg.result() }); await wp.waitForTimeout(300); await wp.screenshot({ path: `${ROOT}/shots/wk-result.png` }); const r = await fit(wp); expect(!r.over.length, r) })
 await t('WebKit: エラーなし', async () => { expect(wp.errs.length === 0, wp.errs.join('|')) })
+await awayNavTest(wp)
 await wb.close()
 server.kill()
 console.log(results.join('\n'))
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
+
+// ---- ページを離れたら音を止める（WebKit。裏に回る→戻る（bfcache の pageshow）で鳴らない、触ると戻る（resume を呼ぶ）。音は出さない。mute.mjs が resume を数えるだけにしているので state は見ない）
+async function awayTest(pg, o = {}) {
+  await t('WebKit: 裏に回ると BGM と環境音が止まり suspend。戻っても触るまで鳴らない（bfcache の pageshow でも）', async () => {
+    const r = await pg.evaluate(async (fb) => {
+      const sl = ms => new Promise(r => setTimeout(r, ms))
+      if (!Snd.ctx) Snd.init()
+      await sl(900); let fbUsed = false
+      if (!Snd.playing().length && fb) { fbUsed = true; Snd.loop('__bed', fb, 0.2); for (let i = 0; i < 40 && !Snd.playing().length; i++) await sl(100) }
+      const before = Snd.playing().length
+      const c = Snd.ctx; let sus = 0; const os = c.suspend.bind(c); c.suspend = () => { sus++; return os() }
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange'))
+      const hid = { away: Snd.away, playing: Snd.playing().length, sus, gain: Snd.master.gain.value }
+      const nm = Object.keys(Snd.files)[0], src = nm ? Snd.play(nm) : null; Snd.loop('__q', fb || Object.values(Snd.files)[0][0], 0.2)   // 裏にいる間の音は鳴らさない
+      await sl(400); const quiet = Snd.playing().length
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange'))
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+      await sl(400); const back = { away: Snd.away, playing: Snd.playing().length, gain: Snd.master.gain.value }
+      Snd.loop('__q', null)
+      return { before, fbUsed, hid, src: !!src, quiet, back, calls0: window.__soundCalls || 0 }
+    }, o.fb || null)
+    const xy = o.tap ? await pg.evaluate(o.tap) : await pg.evaluate(() => ({ x: 8, y: innerHeight * 0.5 }))
+    await pg.touchscreen.tap(xy.x, xy.y); await pg.waitForTimeout(800)
+    const after = await pg.evaluate(() => ({ away: Snd.away, playing: Snd.playing().length, wake: Snd.life.wake, calls: window.__soundCalls || 0, mute: window.__muteOk() }))
+    if (r.fbUsed) await pg.evaluate(() => Snd.loop('__bed', null))
+    expect(r.before >= 1 && r.hid.away && r.hid.playing === 0 && r.hid.sus === 1 && r.hid.gain === 0 && !r.src && r.quiet === 0 && r.back.away && r.back.playing === 0 && r.back.gain === 0 && !after.away && after.playing >= r.before && after.wake === 1 && after.calls > r.calls0 && after.mute, JSON.stringify({ r, after }))
+    return { before: r.before, after: after.playing, fb: r.fbUsed }
+  })
+}
+async function awayNavTest(pg, o = {}) {
+  await t('WebKit: 別のページへ移る（pagehide）と止まり、戻るで戻っても鳴っていない', async () => {
+    await pg.evaluate(() => { if (!Snd.ctx) Snd.init(); addEventListener('pagehide', () => { try { sessionStorage.setItem('__awayHide', JSON.stringify({ away: Snd.away, playing: Snd.playing().length, hide: Snd.life.hide })) } catch (e) {} }) })
+    const e0 = pg.errs.length
+    await pg.goto(o.to || URL0 + 'privacy.html'); await pg.waitForTimeout(300)
+    await pg.goBack({ waitUntil: 'commit' }).catch(() => {}); await pg.waitForFunction(() => document.readyState === 'complete' && typeof Snd === 'object', null, { timeout: 15000 }); await pg.waitForTimeout(1000)
+    const back = await pg.evaluate(() => ({ playing: Snd.playing().length, ctx: !!Snd.ctx, away: Snd.away, h: JSON.parse(sessionStorage.getItem('__awayHide') || '{}') }))
+    expect(back.h.away && back.h.playing === 0 && back.playing === 0 && pg.errs.length === e0, JSON.stringify(back) + pg.errs.slice(e0).join('|')); return back
+  })
+}
